@@ -61,6 +61,17 @@ Once enrolled, you can use the provided simple scripts to control the bulb:
   
   # Candle light flickering effect at 50 brightness
   python3 whites.py "candle light" 50
+
+  # Set Bug Lighting (amber repellant profile)
+  python whites.py "bug lighting"
+  ```
+
+- **Full Color Animations (Effects):**
+  Effects like `Fireworks` were found to be complex 6-frame red/green/blue loop patterns stored entirely online. Because they aren't commands, the SDK uploads them manually to the bulb using `set_color_pattern`, then runs them with `start_color_pattern`.
+
+  ```bash
+  # Upload and run the 6-frame Fireworks red-green-blue-orange-purple loop
+  python effects.py fireworks
   
   # See all available profiles
   python3 whites.py

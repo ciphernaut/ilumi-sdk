@@ -10,6 +10,7 @@ PROFILES = {
     "early morning": (83, 75, 0, 255),
     "sunrise": (107, 0, 0, 255),
     "edison bulb": (175, 180, 0, 63),
+    "bug lighting": (255, 30, 0, 0),
     "candle light": (255, 190, 0, 29) # Special Mode
 }
 

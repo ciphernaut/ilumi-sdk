@@ -14,6 +14,8 @@ class IlumiApiCmdType:
     ILUMI_API_CMD_SET_COLOR_NEED_RESP = 54
     ILUMI_API_CMD_COMMISSION_WITH_ID = 58
     ILUMI_API_CMD_SET_CANDL_MODE = 35
+    ILUMI_API_CMD_START_COLOR_PATTERN = 40
+    ILUMI_API_CMD_SET_COLOR_PATTERN = 41
 
 class IlumiSDK:
     def __init__(self, mac_address=None):
@@ -102,5 +104,38 @@ class IlumiSDK:
         cmd = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_SET_CANDL_MODE)
         # gatt_ilumi_set_color_t structure is identical, just passed with CANDL_MODE
         payload = struct.pack("<B B B B B B B", r, g, b, w, brightness, 0, 0)
+        await self._send_command(cmd + payload)
+
+    async def set_color_pattern(self, scene_idx, frames, repeatable=1, start_now=1):
+        """
+        Uploads a color animation pattern to the bulb.
+        `frames` should be a list of dicts with:
+        {'r': int, 'g': int, 'b': int, 'w': int, 'brightness': int, 'sustain_ms': int, 'transit_ms': int}
+        """
+        cmd = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_SET_COLOR_PATTERN)
+        
+        # Build the gatt_ilumi_set_scene_t structure
+        # payload_size(U16), scene_idx(U8), array_size(U8), repeatable(U8), next_idx(U8), start_now(U8)
+        
+        # Build the frame data array from internal_color_scheme
+        frame_bytes = bytearray()
+        for f in frames:
+            # IlumiColorInternal: Red(1), Green(1), Blue(1), White(1), Brightness(1), Reserved(1) -> 6 bytes
+            color = struct.pack("<B B B B B B", f.get('r', 0), f.get('g', 0), f.get('b', 0), f.get('w', 0), f.get('brightness', 255), 0)
+            # sustain_time_msed(U32), transit_time_msed(U32), sustain_effect(1), transit_effect(1), loopback_index(1), loopback_times(1)
+            timings = struct.pack("<I I B B B B", f.get('sustain_ms', 500), f.get('transit_ms', 100), 0, 0, 0, 0)
+            frame_bytes.extend(color + timings)
+
+        # Base struct payload size
+        total_struct_size = 7 + len(frame_bytes) 
+        array_size = len(frames)
+        
+        scene_header = struct.pack("<H B B B B B", total_struct_size, scene_idx, array_size, repeatable, scene_idx, start_now)
+        await self._send_command(cmd + scene_header + frame_bytes)
+
+    async def start_color_pattern(self, scene_idx):
+        cmd = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_START_COLOR_PATTERN)
+        # gatt_ilumi_start_scene_t: scene_idx(U8)
+        payload = struct.pack("<B", scene_idx)
         await self._send_command(cmd + payload)
 
