@@ -37,11 +37,14 @@ Once enrolled, you can use the provided simple scripts to control the bulb:
   python3 off.py
   ```
 
-- **Set Color (Red, Green, Blue, White [optional]):**
-  The `color.py` script takes RGB(W) values between 0 and 255.
+- **Set Color (Red, Green, Blue, White [optional], Brightness [optional]):**
+  The `color.py` script takes RGB(W) values between 0 and 255. Brightness is also an optional integer between 0 and 255.
   ```bash
   # Set to green
   python3 color.py 0 255 0
+  
+  # Set to green at very low brightness (example: 25/255)
+  python3 color.py 0 255 0 0 25
 
   # Set to red
   python3 color.py 255 0 0

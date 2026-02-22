@@ -9,10 +9,11 @@ async def main():
         
     r, g, b = int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3])
     w = int(sys.argv[4]) if len(sys.argv) > 4 else 0
+    brightness = int(sys.argv[5]) if len(sys.argv) > 5 else 255
     
     sdk = IlumiSDK()
-    print(f"Setting color for bulb at {sdk.mac_address} to R:{r} G:{g} B:{b} W:{w}...")
-    await sdk.set_color(r, g, b, w)
+    print(f"Setting color for bulb at {sdk.mac_address} to R:{r} G:{g} B:{b} W:{w} Brightness:{brightness}...")
+    await sdk.set_color(r, g, b, w, brightness)
     print("Done.")
 
 if __name__ == "__main__":
