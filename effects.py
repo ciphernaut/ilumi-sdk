@@ -16,8 +16,8 @@ async def play_fireworks(sdk):
         {'r': 128, 'g': 0, 'b': 128, 'w': 0, 'brightness': 255, 'sustain_ms': 500, 'transit_ms': 100}
     ]
     
-    # Store this pattern in the bulb's scene index 3 (Matches its sortingIndex in the app)
-    scene_idx = 3
+    # Store this pattern in the bulb's scene index 4 (Matches its sortingIndex in the app + 1)
+    scene_idx = 4
     print("Uploading Fireworks pattern to the bulb...")
     await sdk.set_color_pattern(scene_idx, frames, repeatable=1, start_now=1)
     
