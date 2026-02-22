@@ -13,6 +13,7 @@ class IlumiApiCmdType:
     ILUMI_API_CMD_TURN_OFF = 5
     ILUMI_API_CMD_SET_COLOR_NEED_RESP = 54
     ILUMI_API_CMD_COMMISSION_WITH_ID = 58
+    ILUMI_API_CMD_SET_CANDL_MODE = 35
 
 class IlumiSDK:
     def __init__(self, mac_address=None):
@@ -96,3 +97,10 @@ class IlumiSDK:
         # IlumiDefaultColorType = DEFAULT_COLOR_DAY (0)
         payload = struct.pack("<B B B B B B B", r, g, b, w, brightness, 0, 0)
         await self._send_command(cmd + payload)
+
+    async def set_candle_mode(self, r, g, b, w=0, brightness=255):
+        cmd = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_SET_CANDL_MODE)
+        # gatt_ilumi_set_color_t structure is identical, just passed with CANDL_MODE
+        payload = struct.pack("<B B B B B B B", r, g, b, w, brightness, 0, 0)
+        await self._send_command(cmd + payload)
+

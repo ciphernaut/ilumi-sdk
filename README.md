@@ -53,6 +53,19 @@ Once enrolled, you can use the provided simple scripts to control the bulb:
   python3 color.py 255 255 255 255
   ```
 
+- **Predefined Whites & Effects:**
+  The Android app has 8 hardcoded profiles that tune the exact RGBW values for different types of light. There is also a special "Candle Light" profile which triggers the bulb's hardware to continuously flicker. Use the `whites.py` script to access these profiles, and pass an optional brightness:
+  ```bash
+  # Daylight profile at max brightness
+  python3 whites.py "daylight"
+  
+  # Candle light flickering effect at 50 brightness
+  python3 whites.py "candle light" 50
+  
+  # See all available profiles
+  python3 whites.py
+  ```
+
 ## Permissions & Debugging
 
 If you run into Bluetooth permission errors during execution, or you want to debug the raw packet traffic (such as gathering Android HCI snoop logs), refer to the `ENABLEMENT.md` file in this repository for instructions.
