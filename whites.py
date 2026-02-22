@@ -41,12 +41,13 @@ async def main():
     r, g, b, w = PROFILES[profile_name]
     
     sdk = IlumiSDK()
-    print(f"Setting profile '{profile_name}' for bulb at {sdk.mac_address} at brightness {brightness}...")
-    
-    if profile_name in ["candle_light", "core_breach"]:
-        await sdk.set_candle_mode(r, g, b, w, brightness)
-    else:
-        await sdk.set_color(r, g, b, w, brightness)
+    async with sdk:
+        print(f"Setting profile '{profile_name}' for bulb at {sdk.mac_address} at brightness {brightness}...")
+        
+        if profile_name in ["candle_light", "core_breach"]:
+            await sdk.set_candle_mode(r, g, b, w, brightness)
+        else:
+            await sdk.set_color(r, g, b, w, brightness)
         
     print("Done.")
 

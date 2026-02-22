@@ -35,19 +35,14 @@ async def main():
         print(f"Valid effects: {json.dumps(available_effects)}")
         sys.exit(1)
     
-    try:
-        sdk = IlumiSDK()
-    except Exception as e:
-        print(f"Error initializing SDK. Have you run enroll.py yet? {e}")
-        return
-        
-    print(f"Applying effect '{effect_name}'...")
-    
-    try:
-        await play_dynamic_effect(sdk, effect_name)
-    except Exception as e:
-        print("Failed to play effect:")
-        traceback.print_exc()
+    sdk = IlumiSDK()
+    async with sdk:
+        print(f"Applying effect '{effect_name}'...")
+        try:
+            await play_dynamic_effect(sdk, effect_name)
+        except Exception as e:
+            print("Failed to play effect:")
+            traceback.print_exc()
 
 if __name__ == "__main__":
     asyncio.run(main())
