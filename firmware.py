@@ -3,6 +3,7 @@ import argparse
 import sys
 import json
 from ilumi_sdk import IlumiSDK
+import ilumi_api
 
 async def check_version(mac):
     async with IlumiSDK(mac) as sdk:
@@ -11,6 +12,25 @@ async def check_version(mac):
         if info:
             print("\nDevice Information:")
             print(json.dumps(info, indent=4))
+            
+            # Check for updates
+            print("\nChecking for firmware updates...")
+            latest = ilumi_api.get_latest_firmware(info['model_number'])
+            if latest:
+                latest_ver = latest.get("versionNumber")
+                current_ver = info['firmware_version']
+                
+                print(f"Current version: {current_ver}")
+                print(f"Latest version:  {latest_ver} ({latest.get('version')})")
+                
+                if latest_ver > current_ver:
+                    print("\n[!] A NEW FIRMWARE VERSION IS AVAILABLE!")
+                    print(f"Release Notes: {latest.get('releaseNotes', 'N/A')}")
+                else:
+                    print("\nFirmware is up to date.")
+            else:
+                print("Could not retrieve latest firmware info from server.")
+                
             return info
         else:
             print("Failed to retrieve device information.")
