@@ -1,0 +1,34 @@
+# Python virtual environment
+venv/
+env/
+.env
+
+# Logs and databases
+*.log
+*.sqlite3
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Captured Images and Trace files
+*.jpg
+*.png
+*.snoop
+*.cfa
+btmon.txt
+
+# Editor and IDE configurations
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Project specific
+com.ilumi_APK/
+com.ilumibeta_apk/
+ilumi_config.json
+capture/
+tests/
