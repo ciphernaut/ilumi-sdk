@@ -18,13 +18,21 @@ class IlumiApiCmdType:
     ILUMI_API_CMD_SET_COLOR_NEED_RESP = 54
     ILUMI_API_CMD_SET_CANDL_MODE = 35
     ILUMI_API_CMD_COMMISSION_WITH_ID = 58
+    ILUMI_API_CMD_GET_DEVICE_INFO = 40
+    ILUMI_API_CMD_CONFIG = 65
+
+class IlumiConfigCmdType:
+    ILUMI_CONFIG_ENTER_BOOTLOADER = 2
 
 class IlumiSDK:
     def __init__(self, mac_address=None):
         self.mac_address = mac_address or config.get_config("mac_address")
         self.network_key = config.get_config("network_key", 0)
         self.seq_num = config.get_config("seq_num", 0)
+        self.dfu_key = int(time.time()) & 0xFFFFFFFF  # Simple random-ish key
         self.client = None
+        self._last_device_info = None
+        self._device_info_event = asyncio.Event()
 
     async def __aenter__(self):
         """Context manager to maintain a persistent connection."""
@@ -36,6 +44,30 @@ class IlumiSDK:
         await self.client.connect()
         
         def notification_handler(sender, data):
+            # Response Header is 4 bytes: [0: cmd, 1: status, 2:4: payload_size (LE)]
+            if len(data) >= 4:
+                cmd_type = data[0]
+                status = data[1]
+                payload_size = struct.unpack("<H", data[2:4])[0]
+                payload = data[4:]
+                
+                if cmd_type == IlumiApiCmdType.ILUMI_API_CMD_GET_DEVICE_INFO:
+                    if len(payload) >= 10:
+                        try:
+                            # <H H B B H H: firmware, bootloader, commission, model, reset, ble_stack
+                            unpacked = struct.unpack("<H H B B H H", payload[:10])
+                            self._last_device_info = {
+                                "firmware_version": unpacked[0],
+                                "bootloader_version": unpacked[1],
+                                "commission_status": unpacked[2],
+                                "model_number": unpacked[3],
+                                "reset_reason": unpacked[4],
+                                "ble_stack_version": unpacked[5]
+                            }
+                            self._device_info_event.set()
+                        except Exception as e:
+                            print(f"Failed to parse device info: {e}")
+
             print(f"Notification from {sender}: {data.hex()}")
         
         await self.client.start_notify(ILUMI_API_CHAR_UUID, notification_handler)
@@ -164,3 +196,32 @@ class IlumiSDK:
         cmd = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_START_COLOR_PATTERN)
         payload = struct.pack("<B", scene_idx)
         await self._send_command(cmd + payload)
+
+    async def get_device_info(self):
+        """Triggers and waits for a GET_DEVICE_INFO response."""
+        self._device_info_event.clear()
+        cmd = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_GET_DEVICE_INFO)
+        # Empty payload for get device info
+        await self._send_command(cmd)
+        
+        try:
+            # Wait up to 5 seconds for the response
+            await asyncio.wait_for(self._device_info_event.wait(), timeout=5.0)
+            return self._last_device_info
+        except asyncio.TimeoutError:
+            print("Timed out waiting for device info.")
+            return None
+
+    async def enter_dfu_mode(self):
+        """Puts the device into Nordic DFU bootloader mode."""
+        cmd = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_CONFIG)
+        # IlumiPacking.enterDFUMode(int dfuKey)
+        # msgPayload.cmd_type.set(ILUMI_CONFIG_ENTER_BOOTLOADER)
+        # msgPayload.parameter[0-3].set(dfuKey)
+        payload = struct.pack("<B 4B", IlumiConfigCmdType.ILUMI_CONFIG_ENTER_BOOTLOADER, 
+                              self.dfu_key & 0xFF, (self.dfu_key >> 8) & 0xFF, 
+                              (self.dfu_key >> 16) & 0xFF, (self.dfu_key >> 24) & 0xFF)
+        
+        print(f"Sending DFU mode entry command with key: {hex(self.dfu_key)}")
+        await self._send_command(cmd + payload)
+        print("Device should be rebooting into DFU mode...")
