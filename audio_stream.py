@@ -73,11 +73,18 @@ class AudioVisualizer:
         print("Initializing Bluetooth Connection...")
         async with self.sdk:
             print("Starting Audio Stream...")
+            
+            # Print the audio device being used
+            default_device = sd.query_devices(kind='input')
+            print(f"Using Audio Input: {default_device['name']} "
+                  f"(Default Sample Rate: {default_device['default_samplerate']}Hz)")
+
             # Open the audio stream
             with sd.InputStream(callback=self.audio_callback,
                                 channels=1, 
                                 samplerate=SAMPLE_RATE, 
                                 blocksize=CHUNK_SIZE):
+
                 
                 print("Listening... Press Ctrl+C to stop.")
                 try:
