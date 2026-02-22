@@ -110,6 +110,23 @@ class IlumiSDK:
             await managed_sdk.client.write_gatt_char(ILUMI_API_CHAR_UUID, payload, response=True)
             await asyncio.sleep(0.5)
 
+    async def _send_command_fast(self, payload):
+        """Sends a command without waiting for a BLE response (write command)."""
+        if self.client and self.client.is_connected:
+            await self.client.write_gatt_char(ILUMI_API_CHAR_UUID, payload, response=False)
+            return
+
+        # Fallback logic
+        print(f"Opening temporary connection to {self.mac_address} for fast write...")
+        async with self as managed_sdk:
+            await managed_sdk.client.write_gatt_char(ILUMI_API_CHAR_UUID, payload, response=False)
+
+        # Fallback for simple scripts not using the context manager
+        print(f"Opening temporary connection to {self.mac_address}...")
+        async with self as managed_sdk:
+            await managed_sdk.client.write_gatt_char(ILUMI_API_CHAR_UUID, payload, response=True)
+            await asyncio.sleep(0.5)
+
     async def _send_chunked_command(self, data: bytes):
         """
         Splits payloads > 20 bytes into 10-byte fragments using ILUMI_API_CMD_DATA_CHUNK.
@@ -172,6 +189,11 @@ class IlumiSDK:
         cmd = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_SET_COLOR_NEED_RESP)
         payload = struct.pack("<B B B B B B B", r, g, b, w, brightness, 0, 0)
         await self._send_command(cmd + payload)
+
+    async def set_color_fast(self, r, g, b, w=0, brightness=255):
+        cmd = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_SET_COLOR)
+        payload = struct.pack("<B B B B B B B", r, g, b, w, brightness, 0, 0)
+        await self._send_command_fast(cmd + payload)
 
     async def set_candle_mode(self, r, g, b, w=0, brightness=255):
         cmd = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_SET_CANDL_MODE)
