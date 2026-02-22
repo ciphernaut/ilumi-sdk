@@ -13,7 +13,16 @@ async def play_dynamic_effect(sdk, effect_name):
     print(f"Uploading {effect_name} pattern to the bulb...")
     # Using repeatable=255 for infinite loops, and start_now=1 to auto-start it.
     await sdk.set_color_pattern(scene_idx, frames, repeatable=255, start_now=1)
-    print(f"{effect_name.capitalize()} uploaded and auto-started!")
+    
+    # Explicitly start the pattern as well, just in case start_now=1 isn't enough
+    print(f"Triggering StartColorPattern for {effect_name} index {scene_idx}...")
+    await sdk.start_color_pattern(scene_idx)
+    
+    print(f"{effect_name.capitalize()} uploaded and started!")
+    
+    # Keep alive for 10 seconds to allow for observations/captures
+    print("Waiting 10 seconds for observation...")
+    await asyncio.sleep(10)
 
 def make_effect_func(effect_name):
     async def _play(sdk):
