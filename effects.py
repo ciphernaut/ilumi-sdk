@@ -3,30 +3,27 @@ import sys
 import argparse
 import traceback
 from ilumi_sdk import IlumiSDK
+from effects_data import EFFECTS_DATA
 
-async def play_fireworks(sdk):
-    # Fireworks loop from effects_1.json
-    # 6 frames: Red, Green, Blue, Orange, Yellow, Purple
-    # 500ms sustain, 100ms transit time per frame
-    frames = [
-        {'r': 255, 'g': 0, 'b': 0, 'w': 0, 'brightness': 255, 'sustain_ms': 500, 'transit_ms': 100},
-        {'r': 0, 'g': 255, 'b': 0, 'w': 0, 'brightness': 255, 'sustain_ms': 500, 'transit_ms': 100},
-        {'r': 0, 'g': 0, 'b': 255, 'w': 0, 'brightness': 255, 'sustain_ms': 500, 'transit_ms': 100},
-        {'r': 255, 'g': 165, 'b': 0, 'w': 0, 'brightness': 255, 'sustain_ms': 500, 'transit_ms': 100},
-        {'r': 255, 'g': 255, 'b': 0, 'w': 0, 'brightness': 255, 'sustain_ms': 500, 'transit_ms': 100},
-        {'r': 128, 'g': 0, 'b': 128, 'w': 0, 'brightness': 255, 'sustain_ms': 500, 'transit_ms': 100}
-    ]
+async def play_dynamic_effect(sdk, effect_name):
+    frames = EFFECTS_DATA[effect_name]
     
-    # Store this pattern in the bulb's scene index 4 (Matches its sortingIndex in the app + 1)
+    # Use a fixed scene index for custom effects
     scene_idx = 4
-    print("Uploading Fireworks pattern to the bulb...")
+    print(f"Uploading {effect_name} pattern to the bulb...")
     # Using repeatable=255 for infinite loops, and start_now=1 to auto-start it.
     await sdk.set_color_pattern(scene_idx, frames, repeatable=255, start_now=1)
-    print("Fireworks uploaded and auto-started! Kaboom!")
+    print(f"{effect_name.capitalize()} uploaded and auto-started!")
+
+def make_effect_func(effect_name):
+    async def _play(sdk):
+        await play_dynamic_effect(sdk, effect_name)
+    return _play
 
 EFFECTS = {
-    "fireworks": play_fireworks
+    name: make_effect_func(name) for name in EFFECTS_DATA.keys()
 }
+
 
 async def main():
     parser = argparse.ArgumentParser(description="Apply an animated effect to an Ilumi bulb.")

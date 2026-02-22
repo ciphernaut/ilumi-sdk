@@ -9,8 +9,16 @@ PROFILES = {
     "natural white": (22, 0, 17, 255),
     "early morning": (83, 75, 0, 255),
     "sunrise": (107, 0, 0, 255),
+    "sunlight": (107, 0, 0, 255),
     "edison bulb": (175, 180, 0, 63),
     "bug lighting": (255, 30, 0, 0),
+    "sleep": (190, 0, 0, 0),
+    "relax": (190, 0, 63, 0),
+    "beauty": (0, 0, 255, 0),
+    "think": (75, 0, 255, 0),
+    "focus": (77, 77, 255, 0),
+    "energize": (0, 153, 255, 0),
+    "witches brew": (255, 0, 0, 0),
     "candle light": (255, 190, 0, 29) # Special Mode
 }
 

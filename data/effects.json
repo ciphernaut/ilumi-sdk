@@ -1,0 +1,1878 @@
+[
+  {
+    "effect": "EFFECT_FOREST",
+    "name": "Forest",
+    "sortingIndex": 1,
+    "index": 15,
+    "description": "",
+    "icon": "effect_icon_forest",
+    "shouldSupportWhite": false,
+    "stripEffect": "",
+    "background": "effect_bg_forest",
+    "pattern": {
+      "shouldShuffle": false,
+      "colorSteps": [
+        [
+          {
+            "color": {
+              "r": 0,
+              "g": 255,
+              "b": 0,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 2,
+              "max": 4
+            },
+            "transitTime": {
+              "min": 0.5,
+              "max": 2
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 0,
+              "g": 255,
+              "b": 0,
+              "w": 75
+            },
+            "sustainTime": {
+              "min": 2,
+              "max": 4
+            },
+            "transitTime": {
+              "min": 0.5,
+              "max": 2
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 0,
+              "g": 255,
+              "b": 0,
+              "w": 75
+            },
+            "sustainTime": {
+              "min": 2,
+              "max": 4
+            },
+            "transitTime": {
+              "min": 0.5,
+              "max": 2
+            },
+            "brightness": 0.15
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 255,
+              "g": 255,
+              "b": 0,
+              "w": 75
+            },
+            "sustainTime": {
+              "min": 2,
+              "max": 4
+            },
+            "transitTime": {
+              "min": 0.5,
+              "max": 2
+            },
+            "brightness": 0.15
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 55,
+              "g": 255,
+              "b": 0,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 2,
+              "max": 4
+            },
+            "transitTime": {
+              "min": 0.5,
+              "max": 2
+            },
+            "brightness": 0.25
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 55,
+              "g": 255,
+              "b": 0,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 2,
+              "max": 4
+            },
+            "transitTime": {
+              "min": 0.5,
+              "max": 2
+            },
+            "brightness": 1
+          }
+        ]
+      ]
+    }
+  },
+  {
+    "effect": "EFFECT_GALAXY",
+    "name": "Galaxy",
+    "sortingIndex": 0,
+    "index": 16,
+    "description": "",
+    "icon": "effect_icon_galaxy",
+    "shouldSupportWhite": false,
+    "stripEffect": "",
+    "background": "effect_bg_galaxy",
+    "pattern": {
+      "shouldShuffle": false,
+      "colorSteps": [
+        [
+          {
+            "color": {
+              "r": 0,
+              "g": 0,
+              "b": 255,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 2,
+              "max": 4
+            },
+            "transitTime": {
+              "min": 3,
+              "max": 4
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 0,
+              "g": 0,
+              "b": 255,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 2,
+              "max": 4
+            },
+            "transitTime": {
+              "min": 3,
+              "max": 4
+            },
+            "brightness": 0.21
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 255,
+              "g": 0,
+              "b": 112,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 2,
+              "max": 4
+            },
+            "transitTime": {
+              "min": 3,
+              "max": 4
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 255,
+              "g": 0,
+              "b": 112,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 2,
+              "max": 4
+            },
+            "transitTime": {
+              "min": 3,
+              "max": 4
+            },
+            "brightness": 0.21
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 255,
+              "g": 95,
+              "b": 0,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 2,
+              "max": 4
+            },
+            "transitTime": {
+              "min": 3,
+              "max": 4
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 255,
+              "g": 95,
+              "b": 0,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 2,
+              "max": 4
+            },
+            "transitTime": {
+              "min": 3,
+              "max": 4
+            },
+            "brightness": 0.21
+          }
+        ]
+      ]
+    }
+  },
+  {
+    "effect": "EFFECT_OCEAN",
+    "name": "Ocean",
+    "sortingIndex": 2,
+    "index": 17,
+    "description": "",
+    "icon": "effect_icon_ocean",
+    "shouldSupportWhite": false,
+    "stripEffect": "",
+    "background": "effect_bg_ocean",
+    "pattern": {
+      "shouldShuffle": false,
+      "colorSteps": [
+        [
+          {
+            "color": {
+              "r": 0,
+              "g": 0,
+              "b": 255,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 3,
+              "max": 4
+            },
+            "transitTime": {
+              "min": 2,
+              "max": 4
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 0,
+              "g": 0,
+              "b": 255,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 3,
+              "max": 4
+            },
+            "transitTime": {
+              "min": 2,
+              "max": 4
+            },
+            "brightness": 0.12
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 0,
+              "g": 0,
+              "b": 255,
+              "w": 120
+            },
+            "sustainTime": {
+              "min": 3,
+              "max": 4
+            },
+            "transitTime": {
+              "min": 2,
+              "max": 4
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 0,
+              "g": 0,
+              "b": 255,
+              "w": 120
+            },
+            "sustainTime": {
+              "min": 3,
+              "max": 4
+            },
+            "transitTime": {
+              "min": 2,
+              "max": 4
+            },
+            "brightness": 0.08
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 34,
+              "g": 255,
+              "b": 255,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 3,
+              "max": 4
+            },
+            "transitTime": {
+              "min": 2,
+              "max": 4
+            },
+            "brightness": 0.30
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 34,
+              "g": 255,
+              "b": 255,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 3,
+              "max": 4
+            },
+            "transitTime": {
+              "min": 2,
+              "max": 4
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 69,
+              "g": 255,
+              "b": 40,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 3,
+              "max": 4
+            },
+            "transitTime": {
+              "min": 2,
+              "max": 4
+            },
+            "brightness": 0.30
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 69,
+              "g": 255,
+              "b": 40,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 3,
+              "max": 4
+            },
+            "transitTime": {
+              "min": 2,
+              "max": 4
+            },
+            "brightness": 0.21
+          }
+        ]
+      ]
+    }
+  },
+  {
+    "effect": "EFFECT_VALENTINE",
+    "name": "Valentine",
+    "sortingIndex": 14,
+    "index": 0,
+    "description": "Enjoy the colors of love with red valentine effect for your special someone. ",
+    "icon": "effect_icon_valentine",
+    "shouldSupportWhite": false,
+    "stripEffect": "",
+    "background": "effect_bg_valentine",
+    "pattern": {
+      "shouldShuffle": false,
+      "colorSteps": [
+        [
+          {
+            "color": {
+              "r": 128,
+              "g": 0,
+              "b": 128,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 3,
+              "max": 3
+            },
+            "transitTime": {
+              "min": 5,
+              "max": 5
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 255,
+              "g": 0,
+              "b": 0,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 3,
+              "max": 3
+            },
+            "transitTime": {
+              "min": 5,
+              "max": 5
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 255,
+              "g": 165,
+              "b": 0,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 3,
+              "max": 3
+            },
+            "transitTime": {
+              "min": 5,
+              "max": 5
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 255,
+              "g": 0,
+              "b": 0,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 3,
+              "max": 3
+            },
+            "transitTime": {
+              "min": 5,
+              "max": 5
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 255,
+              "g": 165,
+              "b": 0,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 3,
+              "max": 3
+            },
+            "transitTime": {
+              "min": 5,
+              "max": 5
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 128,
+              "g": 0,
+              "b": 128,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 3,
+              "max": 3
+            },
+            "transitTime": {
+              "min": 5,
+              "max": 5
+            },
+            "brightness": 1
+          }
+        ]
+      ]
+    }
+  },
+  {
+    "effect": "EFFECT_SWEETHEART",
+    "name": "Sweetheart",
+    "sortingIndex": 15,
+    "index": 1,
+    "description": "Enjoy the colors of love with sweetheart effects for your special someone. ",
+    "icon": "effect_icon_sweetheart",
+    "background": "effect_bg_sweetheart",
+    "shouldSupportWhite": false,
+    "stripEffect": "",
+    "pattern": {
+      "shouldShuffle": true,
+      "colorSteps": [
+        [
+          {
+            "color": {
+              "r": 0,
+              "g": 255,
+              "b": 160,
+              "w": 56
+            },
+            "sustainTime": {
+              "min": 1,
+              "max": 2
+            },
+            "transitTime": {
+              "min": 2,
+              "max": 3
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 255,
+              "g": 0,
+              "b": 0,
+              "w": 56
+            },
+            "sustainTime": {
+              "min": 1,
+              "max": 2
+            },
+            "transitTime": {
+              "min": 2,
+              "max": 3
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 255,
+              "g": 160,
+              "b": 0,
+              "w": 56
+            },
+            "sustainTime": {
+              "min": 1,
+              "max": 2
+            },
+            "transitTime": {
+              "min": 2,
+              "max": 3
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 0,
+              "g": 255,
+              "b": 10,
+              "w": 56
+            },
+            "sustainTime": {
+              "min": 1,
+              "max": 2
+            },
+            "transitTime": {
+              "min": 2,
+              "max": 3
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 160,
+              "g": 0,
+              "b": 255,
+              "w": 56
+            },
+            "sustainTime": {
+              "min": 1,
+              "max": 2
+            },
+            "transitTime": {
+              "min": 2,
+              "max": 3
+            },
+            "brightness": 1
+          }
+        ]
+      ]
+    }
+  },
+  {
+    "effect": "EFFECT_FIRE_ROOSTER",
+    "name": "Year of the Rooster",
+    "sortingIndex": 16,
+    "index": 2,
+    "description": "Welcome in this Chinese New Year with a fiery effect to bring good luck and fortune. ",
+    "icon": "effect_icon_yearoftherooster",
+    "background": "effect_bg_yearoftherooster",
+    "shouldSupportWhite": false,
+    "stripEffect": "0xA7",
+    "pattern": {
+      "shouldShuffle": true,
+      "colorSteps": [
+        [
+          {
+            "color": {
+              "r": 255,
+              "g": 0,
+              "b": 0,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 1,
+              "max": 2
+            },
+            "transitTime": {
+              "min": 1,
+              "max": 5
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 255,
+              "g": 110,
+              "b": 0,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 1,
+              "max": 2
+            },
+            "transitTime": {
+              "min": 1,
+              "max": 5
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 255,
+              "g": 255,
+              "b": 0,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 1,
+              "max": 2
+            },
+            "transitTime": {
+              "min": 1,
+              "max": 5
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 0,
+              "g": 255,
+              "b": 0,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 1,
+              "max": 2
+            },
+            "transitTime": {
+              "min": 1,
+              "max": 5
+            },
+            "brightness": 1
+          }
+        ]
+      ]
+    }
+  },
+  {
+    "effect": "EFFECT_FIREWORKS",
+    "name": "Fireworks",
+    "sortingIndex": 3,
+    "index": 3,
+    "description": "Light up your ceiling with an explosion of colors. Kaboom!",
+    "icon": "effect_icon_fireworks",
+    "background": "effect_bg_fireworks",
+    "shouldSupportWhite": false,
+    "stripEffect": "0xA9",
+    "pattern": {
+      "shouldShuffle": false,
+      "colorSteps": [
+        [
+          {
+            "color": {
+              "r": 255,
+              "g": 0,
+              "b": 0,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 0.5,
+              "max": 0.5
+            },
+            "transitTime": {
+              "min": 0.1,
+              "max": 0.1
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 0,
+              "g": 255,
+              "b": 0,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 0.5,
+              "max": 0.5
+            },
+            "transitTime": {
+              "min": 0.1,
+              "max": 0.1
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 0,
+              "g": 0,
+              "b": 255,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 0.5,
+              "max": 0.5
+            },
+            "transitTime": {
+              "min": 0.1,
+              "max": 0.1
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 255,
+              "g": 165,
+              "b": 0,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 0.5,
+              "max": 0.5
+            },
+            "transitTime": {
+              "min": 0.1,
+              "max": 0.1
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 255,
+              "g": 255,
+              "b": 0,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 0.5,
+              "max": 0.5
+            },
+            "transitTime": {
+              "min": 0.1,
+              "max": 0.1
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 128,
+              "g": 0,
+              "b": 128,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 0.5,
+              "max": 0.5
+            },
+            "transitTime": {
+              "min": 0.1,
+              "max": 0.1
+            },
+            "brightness": 1
+          }
+        ]
+      ]
+    }
+  },
+  {
+    "effect": "EFFECT_TYPE_CANDLE_LIGHT",
+    "name": "Candlelight",
+    "sortingIndex": 4,
+    "index": 4,
+    "description": "A subtle flicker of a candle’s warm glow to relax and remind ye of olden times.",
+    "icon": "effect_icon_candlelight",
+    "background": "effect_bg_candlelight",
+    "shouldSupportWhite": true,
+    "stripEffect": "0xA5",
+    "candleColor": {
+      "r": 255,
+      "g": 255,
+      "b": 0,
+      "w": 0
+    }
+  },
+  {
+    "effect": "EFFECT_TYPE_AURORA",
+    "name": "Aurora",
+    "sortingIndex": 5,
+    "index": 5,
+    "description": "Bask in the spectacular glow of the northern lights, cool eh?",
+    "icon": "effect_icon_aurora",
+    "background": "effect_bg_aurora",
+    "shouldSupportWhite": false,
+    "stripEffect": "0xA6",
+    "pattern": {
+      "shouldShuffle": false,
+      "colorSteps": [
+        [
+          {
+            "color": {
+              "r": 0,
+              "g": 255,
+              "b": 0,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 2,
+              "max": 2
+            },
+            "transitTime": {
+              "min": 5,
+              "max": 5
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 0,
+              "g": 223,
+              "b": 0,
+              "w": 54
+            },
+            "sustainTime": {
+              "min": 2,
+              "max": 2
+            },
+            "transitTime": {
+              "min": 5,
+              "max": 5
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 19,
+              "g": 0,
+              "b": 184,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 2,
+              "max": 2
+            },
+            "transitTime": {
+              "min": 5,
+              "max": 5
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 196,
+              "g": 0,
+              "b": 103,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 2,
+              "max": 2
+            },
+            "transitTime": {
+              "min": 5,
+              "max": 5
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 0,
+              "g": 255,
+              "b": 36,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 2,
+              "max": 2
+            },
+            "transitTime": {
+              "min": 5,
+              "max": 5
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 255,
+              "g": 255,
+              "b": 0,
+              "w": 16
+            },
+            "sustainTime": {
+              "min": 2,
+              "max": 2
+            },
+            "transitTime": {
+              "min": 5,
+              "max": 5
+            },
+            "brightness": 1
+          }
+        ]
+      ]
+    }
+  },
+  {
+    "effect": "EFFECT_TYPE_VOLCANIC",
+    "name": "Volcanic",
+    "sortingIndex": 6,
+    "index": 6,
+    "description": "Heat things up with a bubbling lava like glow without the worry of burning yourself alive.",
+    "icon": "effect_icon_lava",
+    "background": "effect_bg_lava",
+    "shouldSupportWhite": false,
+    "stripEffect": "",
+    "pattern": {
+      "shouldShuffle": false,
+      "colorSteps": [
+        [
+          {
+            "color": {
+              "r": 255,
+              "g": 0,
+              "b": 0,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 2,
+              "max": 2
+            },
+            "transitTime": {
+              "min": 7,
+              "max": 7
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 255,
+              "g": 255,
+              "b": 0,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 2,
+              "max": 2
+            },
+            "transitTime": {
+              "min": 7,
+              "max": 7
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 255,
+              "g": 165,
+              "b": 0,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 2,
+              "max": 2
+            },
+            "transitTime": {
+              "min": 7,
+              "max": 7
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 255,
+              "g": 255,
+              "b": 0,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 2,
+              "max": 2
+            },
+            "transitTime": {
+              "min": 7,
+              "max": 7
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 255,
+              "g": 0,
+              "b": 0,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 2,
+              "max": 2
+            },
+            "transitTime": {
+              "min": 7,
+              "max": 7
+            },
+            "brightness": 1
+          }
+        ]
+      ]
+    }
+  },
+  {
+    "effect": "EFFECT_TYPE_INDEPENDENCE",
+    "name": "Stars and Stripes",
+    "sortingIndex": 7,
+    "index": 7,
+    "description": "Celebrate America’s Independence day with a rotation of Red, White, & Blue.",
+    "icon": "effect_icon_stars_stripes",
+    "background": "effect_bg_stars_strips",
+    "shouldSupportWhite": false,
+    "stripEffect": "0xA1",
+    "pattern": {
+      "shouldShuffle": true,
+      "colorSteps": [
+        [
+          {
+            "color": {
+              "r": 255,
+              "g": 0,
+              "b": 0,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 5,
+              "max": 5
+            },
+            "transitTime": {
+              "min": 1,
+              "max": 1
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 0,
+              "g": 0,
+              "b": 0,
+              "w": 255
+            },
+            "sustainTime": {
+              "min": 5,
+              "max": 5
+            },
+            "transitTime": {
+              "min": 1,
+              "max": 1
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 0,
+              "g": 0,
+              "b": 255,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 5,
+              "max": 5
+            },
+            "transitTime": {
+              "min": 1,
+              "max": 1
+            },
+            "brightness": 1
+          }
+        ]
+      ]
+    }
+  },
+  {
+    "effect": "EFFECT_TRICK_TREAT",
+    "name": "Trick or Treat",
+    "sortingIndex": 8,
+    "index": 8,
+    "description": "A delicious mix of Halloween colors. Boo!",
+    "icon": "effect_icon_trick_treat",
+    "background": "effect_bg_trick_treat",
+    "shouldSupportWhite": false,
+    "stripEffect": "",
+    "pattern": {
+      "shouldShuffle": false,
+      "colorSteps": [
+        [
+          {
+            "color": {
+              "r": 255,
+              "g": 84,
+              "b": 0,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 0.1,
+              "max": 0.1
+            },
+            "transitTime": {
+              "min": 2,
+              "max": 7
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 255,
+              "g": 168,
+              "b": 0,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 0.1,
+              "max": 0.1
+            },
+            "transitTime": {
+              "min": 2,
+              "max": 7
+            },
+            "brightness": 0.13
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 255,
+              "g": 42,
+              "b": 0,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 0.1,
+              "max": 0.1
+            },
+            "transitTime": {
+              "min": 2,
+              "max": 7
+            },
+            "brightness": 0.48
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 255,
+              "g": 84,
+              "b": 0,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 0.1,
+              "max": 0.1
+            },
+            "transitTime": {
+              "min": 2,
+              "max": 7
+            },
+            "brightness": 0.71
+          }
+        ]
+      ]
+    }
+  },
+  {
+    "effect": "EFFECT_HAUNTED_HOUSE",
+    "name": "Haunted House",
+    "sortingIndex": 9,
+    "index": 9,
+    "description": "Scare off the neighborhood kids with this ghoulish strobe effect.",
+    "icon": "effect_icon_haunted_house",
+    "background": "effect_bg_haunted_house",
+    "shouldSupportWhite": false,
+    "stripEffect": "0xA8",
+    "pattern": {
+      "shouldShuffle": true,
+      "colorSteps": [
+        [
+          {
+            "color": {
+              "r": 173,
+              "g": 0,
+              "b": 255,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 0.5,
+              "max": 1.5
+            },
+            "transitTime": {
+              "min": 0,
+              "max": 0
+            },
+            "brightness": 1
+          },
+          {
+            "color": {
+              "r": 0,
+              "g": 0,
+              "b": 0,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 0.1,
+              "max": 1.5
+            },
+            "transitTime": {
+              "min": 0,
+              "max": 0
+            },
+            "brightness": 0
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 0,
+              "g": 255,
+              "b": 0,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 0.5,
+              "max": 1.5
+            },
+            "transitTime": {
+              "min": 0,
+              "max": 0
+            },
+            "brightness": 1
+          },
+          {
+            "color": {
+              "r": 0,
+              "g": 0,
+              "b": 0,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 0.1,
+              "max": 1.5
+            },
+            "transitTime": {
+              "min": 0,
+              "max": 0
+            },
+            "brightness": 0
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 255,
+              "g": 0,
+              "b": 0,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 0.5,
+              "max": 1.5
+            },
+            "transitTime": {
+              "min": 0,
+              "max": 0
+            },
+            "brightness": 1
+          },
+          {
+            "color": {
+              "r": 0,
+              "g": 0,
+              "b": 0,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 0.1,
+              "max": 1.5
+            },
+            "transitTime": {
+              "min": 0,
+              "max": 0
+            },
+            "brightness": 0
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 0,
+              "g": 0,
+              "b": 205,
+              "w": 187
+            },
+            "sustainTime": {
+              "min": 0.5,
+              "max": 1.5
+            },
+            "transitTime": {
+              "min": 0,
+              "max": 0
+            },
+            "brightness": 1
+          },
+          {
+            "color": {
+              "r": 0,
+              "g": 0,
+              "b": 0,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 0.1,
+              "max": 1.5
+            },
+            "transitTime": {
+              "min": 0,
+              "max": 0
+            },
+            "brightness": 0
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 255,
+              "g": 93,
+              "b": 0,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 0.5,
+              "max": 1.5
+            },
+            "transitTime": {
+              "min": 0,
+              "max": 0
+            },
+            "brightness": 1
+          },
+          {
+            "color": {
+              "r": 0,
+              "g": 0,
+              "b": 0,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 0.1,
+              "max": 1.5
+            },
+            "transitTime": {
+              "min": 0,
+              "max": 0
+            },
+            "brightness": 0
+          }
+        ]
+      ]
+    }
+  },
+  {
+    "effect": "EFFECT_MONSTER_MASH",
+    "name": "Monster Mash",
+    "sortingIndex": 10,
+    "index": 10,
+    "description": "A bubbling concoction of wicked colors, if you dare…",
+    "icon": "effect_icon_monster_mash",
+    "background": "effect_bg_monster_mash",
+    "shouldSupportWhite": false,
+    "stripEffect": "",
+    "pattern": {
+      "shouldShuffle": true,
+      "colorSteps": [
+        [
+          {
+            "color": {
+              "r": 168,
+              "g": 67,
+              "b": 0,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 1,
+              "max": 3
+            },
+            "transitTime": {
+              "min": 1,
+              "max": 4
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 0,
+              "g": 255,
+              "b": 0,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 1,
+              "max": 3
+            },
+            "transitTime": {
+              "min": 1,
+              "max": 4
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 225,
+              "g": 175,
+              "b": 0,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 1,
+              "max": 3
+            },
+            "transitTime": {
+              "min": 1,
+              "max": 4
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 37,
+              "g": 175,
+              "b": 0,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 1,
+              "max": 3
+            },
+            "transitTime": {
+              "min": 1,
+              "max": 4
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 255,
+              "g": 25,
+              "b": 0,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 1,
+              "max": 3
+            },
+            "transitTime": {
+              "min": 1,
+              "max": 4
+            },
+            "brightness": 1
+          }
+        ]
+      ]
+    }
+  },
+  {
+    "effect": "EFFECT_JINGLE_BELL",
+    "name": "Jingle Bells",
+    "sortingIndex": 11,
+    "stripEffect": "0xA0",
+    "index": 11,
+    "description": "Get in the spirit with Rudolph reds and Christmas tree greens.",
+    "icon": "effect_icon_jingle_bell",
+    "background": "effect_bg_jingle_bell",
+    "pattern": {
+      "shouldShuffle": true,
+      "colorSteps": [
+        [
+          {
+            "color": {
+              "r": 255,
+              "g": 0,
+              "b": 0,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 1,
+              "max": 1
+            },
+            "transitTime": {
+              "min": 0.2,
+              "max": 0.2
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 0,
+              "g": 255,
+              "b": 0,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 1,
+              "max": 1
+            },
+            "transitTime": {
+              "min": 0.2,
+              "max": 0.2
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 255,
+              "g": 146,
+              "b": 4,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 1,
+              "max": 1
+            },
+            "transitTime": {
+              "min": 0.2,
+              "max": 0.2
+            },
+            "brightness": 0.31
+          }
+        ]
+      ]
+    }
+  },
+  {
+    "effect": "EFFECT_TYPE_FESTIVAL_OF_LIGHT",
+    "name": "Festival of Lights",
+    "sortingIndex": 12,
+    "index": 12,
+    "description": "Dreidel time is better with this Hanukah themed effect.",
+    "icon": "effect_icon_festival_of_lights",
+    "background": "effect_bg_festival_of_lights",
+    "stripEffect": "",
+    "pattern": {
+      "shouldShuffle": true,
+      "colorSteps": [
+        [
+          {
+            "color": {
+              "r": 0,
+              "g": 0,
+              "b": 255,
+              "w": 0
+            },
+            "sustainTime": {
+              "min": 1,
+              "max": 7
+            },
+            "transitTime": {
+              "min": 0.5,
+              "max": 5
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 187,
+              "g": 95,
+              "b": 0,
+              "w": 66
+            },
+            "sustainTime": {
+              "min": 1,
+              "max": 7
+            },
+            "transitTime": {
+              "min": 0.5,
+              "max": 5
+            },
+            "brightness": 1
+          }
+        ]
+      ]
+    }
+  },
+  {
+    "effect": "EFFECT_TYPE_WINTER_WONDERLAND",
+    "name": "Winter Wonderland",
+    "sortingIndex": 13,
+    "index": 13,
+    "description": "Grab that Holiday sweater & bundle up, Brr!",
+    "icon": "effect_icon_winter_wonderland",
+    "background": "effect_bg_winter_wonderland",
+    "stripEffect": "",
+    "shouldSupportWhite": true,
+    "pattern": {
+      "shouldShuffle": true,
+      "colorSteps": [
+        [
+          {
+            "color": {
+              "r": 0,
+              "g": 0,
+              "b": 203,
+              "w": 69
+            },
+            "sustainTime": {
+              "min": 0.5,
+              "max": 5
+            },
+            "transitTime": {
+              "min": 0.5,
+              "max": 1
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 0,
+              "g": 0,
+              "b": 203,
+              "w": 69
+            },
+            "sustainTime": {
+              "min": 0.5,
+              "max": 5
+            },
+            "transitTime": {
+              "min": 0.5,
+              "max": 1
+            },
+            "brightness": 0.235
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 33,
+              "g": 0,
+              "b": 211,
+              "w": 132
+            },
+            "sustainTime": {
+              "min": 0.5,
+              "max": 5
+            },
+            "transitTime": {
+              "min": 0.5,
+              "max": 1
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 33,
+              "g": 0,
+              "b": 211,
+              "w": 132
+            },
+            "sustainTime": {
+              "min": 0.5,
+              "max": 5
+            },
+            "transitTime": {
+              "min": 0.5,
+              "max": 1
+            },
+            "brightness": 0.235
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 0,
+              "g": 0,
+              "b": 165,
+              "w": 255
+            },
+            "sustainTime": {
+              "min": 0.5,
+              "max": 5
+            },
+            "transitTime": {
+              "min": 0.5,
+              "max": 1
+            },
+            "brightness": 1
+          }
+        ],
+        [
+          {
+            "color": {
+              "r": 0,
+              "g": 0,
+              "b": 165,
+              "w": 255
+            },
+            "sustainTime": {
+              "min": 0.5,
+              "max": 5
+            },
+            "transitTime": {
+              "min": 0.5,
+              "max": 1
+            },
+            "brightness": 0.235
+          }
+        ]
+      ]
+    }
+  }
+]

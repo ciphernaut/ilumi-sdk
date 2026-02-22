@@ -1,0 +1,190 @@
+[
+  {
+    "uid": "1pO8JQQ8LWkysNVU3PboAcXq7gAgqg15",
+    "name": "Bug Lighting",
+    "colors": [
+      {
+        "color": "#ff1e0000",
+        "weight": 1.0
+      }
+    ],
+    "icon": "preset_icon_bug_light",
+    "background": "preset_bg_bug_light",
+    "shouldSupportWhite": false
+  },
+  {
+    "uid": "1pO8JQQ8LWkysNVU3PboAcXq7gAgqg14",
+    "name": "Romance",
+    "colors": [
+      {
+        "color": "#FF000000",
+        "weight": 1.0
+      },
+      {
+        "color": "#FF000644",
+        "weight": 1.0
+      }
+    ],
+    "icon": "preset_icon_romance",
+    "background": "preset_bg_romance",
+    "shouldSupportWhite": false
+  },
+  {
+    "uid": "6urbpjdfyhl206cvv3wws5inp85vwanw",
+    "name": "Candy Cane",
+    "colors": [
+      {
+        "color": "#FF000000",
+        "weight": 1.0
+      },
+      {
+        "color": "#000000FF",
+        "weight": 1.0
+      }
+    ],
+    "icon": "preset_icon_candy_cane",
+    "background": "preset_bg_candy_cane",
+    "shouldSupportWhite": false
+  },
+  {
+    "uid": "5a853c6b3d024dbc95d8488c54b00788",
+    "name": "Sleep",
+    "colors": [
+      {
+        "color": "#FFBE0000",
+        "weight": 1.0
+      }
+    ],
+    "icon": "preset_icon_sleep",
+    "background": "preset_bg_sleep",
+    "shouldSupportWhite": true
+  },
+  {
+    "uid": "901a615fc38a4831b1ad4e51d373a095",
+    "name": "Relax",
+    "colors": [
+      {
+        "color": "#FFBE003F",
+        "weight": 1.0
+      }
+    ],
+    "icon": "preset_icon_relax",
+    "background": "preset_bg_relax",
+    "shouldSupportWhite": true
+  },
+  {
+    "uid": "111652f6cd0a4f328b3dcb2c71604913",
+    "name": "Beauty",
+    "colors": [
+      {
+        "color": "#520000FF",
+        "weight": 1.0
+      }
+    ],
+    "icon": "preset_icon_beauty",
+    "background": "preset_bg_beauty",
+    "shouldSupportWhite": false
+  },
+  {
+    "uid": "52aec24d64ea49c99b1f66a68ea847ad",
+    "name": "Think",
+    "colors": [
+      {
+        "color": "#3E4B00FF",
+        "weight": 1.0
+      }
+    ],
+    "icon": "preset_icon_think",
+    "background": "preset_bg_think",
+    "shouldSupportWhite": true
+  },
+  {
+    "uid": "779aacdc17654f3a87801d3041942c30",
+    "name": "Focus",
+    "colors": [
+      {
+        "color": "#1A4D4DFF",
+        "weight": 1.0
+      }
+    ],
+    "icon": "preset_icon_focus",
+    "background": "preset_bg_focus",
+    "shouldSupportWhite": true
+  },
+  {
+    "uid": "15fe81d90e604d49a06cd45b3ff9255f",
+    "name": "Energize",
+    "colors": [
+      {
+        "color": "#000099FF",
+        "weight": 1.0
+      }
+    ],
+    "icon": "preset_icon_energize",
+    "background": "preset_bg_energize",
+    "shouldSupportWhite": true
+  },
+  {
+    "uid": "b487bb633d1d4908b59c6b613a2f2257",
+    "name": "Red White Blue",
+    "colors": [
+      {
+        "color": "#FF000000",
+        "weight": 1.0
+      },
+      {
+        "color": "#000000FF",
+        "weight": 1.0
+      },
+      {
+        "color": "#0000FF00",
+        "weight": 1.0
+      }
+    ],
+    "icon": "preset_icon_red_white_blue",
+    "background": "preset_bg_red_white_blue",
+    "shouldSupportWhite": false
+  },
+  {
+    "uid": "1074dd0376b64af78f44676294708174",
+    "name": "Jack O' Lantern",
+    "colors": [
+      {
+        "color": "#A8430000",
+        "weight": 1.0
+      },
+      {
+        "color": "#7E7B0000",
+        "weight": 1.0
+      }
+    ],
+    "icon": "preset_icon_halloween",
+    "background": "preset_bg_halloween",
+    "shouldSupportWhite": false
+  },
+  {
+    "uid": "67c9c7dd6e4942b9a1674d79b286e024",
+    "name": "Witches Brew",
+    "colors": [
+      {
+        "color": "#25FF0000",
+        "weight": 1.0
+      },
+      {
+        "color": "#5800FF00",
+        "weight": 1.0
+      },
+      {
+        "color": "#00FF0000",
+        "weight": 1.0
+      },
+      {
+        "color": "#2800FF00",
+        "weight": 2.0
+      }
+    ],
+    "icon": "preset_icon_goblin_greens",
+    "background": "preset_bg_goblin_greens",
+    "shouldSupportWhite": false
+  }
+]
