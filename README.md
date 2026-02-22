@@ -80,3 +80,9 @@ Once enrolled, you can use the provided simple scripts to control the bulb:
 ## Permissions & Debugging
 
 If you run into Bluetooth permission errors during execution, or you want to debug the raw packet traffic (such as gathering Android HCI snoop logs), refer to the `ENABLEMENT.md` file in this repository for instructions.
+
+### Troubleshooting Animations
+If animations appear stuck or "static", ensure that the `IlumiApiCmdType` ordinals in `ilumi_sdk.py` match your bulb's firmware version. During development, a critical protocol mismatch was discovered where `SET_COLOR_PATTERN` and `START_COLOR_PATTERN` were incorrectly assumed to be 40/41, while the official Android app uses ordinals 7 and 8.
+
+### Observing Mode
+For protocol debugging or camera captures, the `effects.py` script contains a commented-out "observing mode" loop at the end of the `play_dynamic_effect` function. Uncommenting this will keep the BLE connection alive for 10 seconds after triggering an animation, allowing you to capture the transition or more traffic.

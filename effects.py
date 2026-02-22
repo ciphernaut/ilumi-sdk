@@ -20,9 +20,10 @@ async def play_dynamic_effect(sdk, effect_name):
     
     print(f"{effect_name.capitalize()} uploaded and started!")
     
-    # Keep alive for 10 seconds to allow for observations/captures
-    print("Waiting 10 seconds for observation...")
-    await asyncio.sleep(10)
+    # Keeping the observation wait for future debugging. 
+    # Uncomment the lines below to keep the connection open for captures.
+    # print("Waiting 10 seconds for observation...")
+    # await asyncio.sleep(10)
 
 def make_effect_func(effect_name):
     async def _play(sdk):
