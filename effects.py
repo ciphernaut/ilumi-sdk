@@ -1,6 +1,7 @@
 import asyncio
 import sys
 import argparse
+import traceback
 from ilumi_sdk import IlumiSDK
 
 async def play_fireworks(sdk):
@@ -19,12 +20,9 @@ async def play_fireworks(sdk):
     # Store this pattern in the bulb's scene index 4 (Matches its sortingIndex in the app + 1)
     scene_idx = 4
     print("Uploading Fireworks pattern to the bulb...")
-    await sdk.set_color_pattern(scene_idx, frames, repeatable=1, start_now=1)
-    
-    # Even though start_now=1 is passed, the Android app explicitly calls start_color_pattern as well
-    print("Starting Fireworks pattern...")
-    await sdk.start_color_pattern(scene_idx)
-    print("Fireworks started! Kaboom!")
+    # Using repeatable=255 for infinite loops, and start_now=1 to auto-start it.
+    await sdk.set_color_pattern(scene_idx, frames, repeatable=255, start_now=1)
+    print("Fireworks uploaded and auto-started! Kaboom!")
 
 EFFECTS = {
     "fireworks": play_fireworks
@@ -49,7 +47,8 @@ async def main():
         effect_func = EFFECTS[effect_name]
         await effect_func(sdk)
     except Exception as e:
-        print(f"Failed to play effect: {e}")
+        print("Failed to play effect:")
+        traceback.print_exc()
 
 if __name__ == "__main__":
     asyncio.run(main())
