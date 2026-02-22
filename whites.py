@@ -19,7 +19,8 @@ PROFILES = {
     "focus": (77, 77, 255, 0),
     "energize": (0, 153, 255, 0),
     "witches brew": (255, 0, 0, 0),
-    "candle light": (255, 190, 0, 29) # Special Mode
+    "candle light": (255, 190, 0, 29), # Special Mode
+    "core breach": (255, 150, 0, 100)  # Meltdown Mode
 }
 
 async def main():
@@ -42,7 +43,7 @@ async def main():
     sdk = IlumiSDK()
     print(f"Setting profile '{profile_name}' for bulb at {sdk.mac_address} at brightness {brightness}...")
     
-    if profile_name == "candle light":
+    if profile_name in ["candle light", "core breach"]:
         await sdk.set_candle_mode(r, g, b, w, brightness)
     else:
         await sdk.set_color(r, g, b, w, brightness)
