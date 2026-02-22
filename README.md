@@ -64,6 +64,36 @@ We've added custom high-intensity effects:
 - **core_breach**: Trigger via `python3 whites.py core_breach`. Uses the bulb's hardware flicker mode for an unstable molten orange glow.
 - **radiation_leak**: Trigger via `python3 effects.py radiation_leak`. A rapid (100ms) strobe that alternates between toxic green and ionizing cyan.
 
+## Advanced Integrations
+
+This SDK supports bypassing the standard BLE acknowledgement sequence (using `write_without_response`) to achieve high-throughput, UDP-like streaming to the bulb (upwards of ~20 frames per second). 
+
+### Live Streaming & Audio Reactivity
+- **Test Stream:** Run a 20 FPS high-speed color sweep:
+  ```bash
+  python3 stream.py --fps 20 --duration 10
+  ```
+- **Audio Visualizer:** Maps your system microphone's bass to Red and treble to Blue in real-time.
+  ```bash
+  pip install sounddevice soundfile numpy scipy
+  python3 audio_stream.py
+  ```
+
+### Smart Home Ecosystems (MQTT)
+Integrate the bulb seamlessly into **Home Assistant** (or OpenHAB/Node-RED) using the MQTT protocol.
+- **MQTT Bridge:** Runs a persistent Bluetooth connection and translates standard Home Assistant JSON commands to lightning-fast SDK calls. The bulb will automatically appear in Home Assistant via MQTT Auto-Discovery.
+  ```bash
+  pip install paho-mqtt
+  python3 mqtt_bridge.py --broker [YOUR_MQTT_IP_ADDRESS]
+  ```
+
+### Professional Lighting Software (Art-Net DMX)
+Control the bulb natively using professional lighting consoles and VJ software (like QLC+, Resolume, and SoundSwitch).
+- **Network DMX Interface:** Listens for standard Art-Net UDP Packets (`OpDmx`) on Port `6454` and maps DMX channels 1-4 directly to the bulb's R, G, B, and W LEDs.
+  ```bash
+  python3 artnet_stream.py --universe 0 --channel 1
+  ```
+
 ## Troubleshooting
 If animations don't play:
 1.  **Protocol Fix**: Ensure `IlumiApiCmdType.ILUMI_API_CMD_SET_COLOR_PATTERN` is set to `7` and `START_COLOR_PATTERN` is set to `8` in `ilumi_sdk.py`.
