@@ -85,7 +85,6 @@ class AudioVisualizer:
                                 samplerate=SAMPLE_RATE, 
                                 blocksize=CHUNK_SIZE):
 
-                
                 print("Listening... Press Ctrl+C to stop.")
                 try:
                     while True:
