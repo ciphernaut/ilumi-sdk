@@ -1,6 +1,6 @@
 import asyncio
 import sys
-import argparse
+import json
 import traceback
 from ilumi_sdk import IlumiSDK
 from effects_data import EFFECTS_DATA
@@ -19,28 +19,21 @@ async def play_dynamic_effect(sdk, effect_name):
     await sdk.start_color_pattern(scene_idx)
     
     print(f"{effect_name.capitalize()} uploaded and started!")
-    
-    # Keeping the observation wait for future debugging. 
-    # Uncomment the lines below to keep the connection open for captures.
-    # print("Waiting 10 seconds for observation...")
-    # await asyncio.sleep(10)
-
-def make_effect_func(effect_name):
-    async def _play(sdk):
-        await play_dynamic_effect(sdk, effect_name)
-    return _play
-
-EFFECTS = {
-    name: make_effect_func(name) for name in EFFECTS_DATA.keys()
-}
-
 
 async def main():
-    parser = argparse.ArgumentParser(description="Apply an animated effect to an Ilumi bulb.")
-    parser.add_argument("effect", choices=list(EFFECTS.keys()), help="The name of the effect to play.")
-    args = parser.parse_args()
+    available_effects = list(EFFECTS_DATA.keys())
     
-    effect_name = args.effect
+    if len(sys.argv) < 2:
+        # Machine-parsable JSON output of available effects
+        print(json.dumps(available_effects))
+        sys.exit(0)
+        
+    effect_name = sys.argv[1].lower().replace(" ", "_")
+    
+    if effect_name not in EFFECTS_DATA:
+        print(f"Error: Effect '{effect_name}' not found.")
+        print(f"Valid effects: {json.dumps(available_effects)}")
+        sys.exit(1)
     
     try:
         sdk = IlumiSDK()
@@ -51,8 +44,7 @@ async def main():
     print(f"Applying effect '{effect_name}'...")
     
     try:
-        effect_func = EFFECTS[effect_name]
-        await effect_func(sdk)
+        await play_dynamic_effect(sdk, effect_name)
     except Exception as e:
         print("Failed to play effect:")
         traceback.print_exc()

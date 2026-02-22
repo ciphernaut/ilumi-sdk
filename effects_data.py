@@ -1,5 +1,5 @@
 EFFECTS_DATA = {
-    "radiation leak": [
+    "radiation_leak": [
         {'r': 0, 'g': 255, 'b': 0, 'w': 0, 'brightness': 255, 'sustain_ms': 50, 'transit_ms': 50},   # Green burst
         {'r': 0, 'g': 0, 'b': 0, 'w': 0, 'brightness': 0, 'sustain_ms': 100, 'transit_ms': 0},      # Dark
         {'r': 0, 'g': 255, 'b': 255, 'w': 50, 'brightness': 255, 'sustain_ms': 50, 'transit_ms': 50}, # Ionizing burst

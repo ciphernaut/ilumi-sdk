@@ -27,70 +27,47 @@ This repository provides a Python interface for controlling Ilumi Smart Bulbs vi
 
 Once enrolled, you can use the provided simple scripts to control the bulb:
 
-- **Turn On:**
+- **Turn On / Off:**
   ```bash
   python3 on.py
-  ```
-
-- **Turn Off:**
-  ```bash
   python3 off.py
   ```
 
 - **Set Color (Red, Green, Blue, White [optional], Brightness [optional]):**
-  The `color.py` script takes RGB(W) values between 0 and 255. Brightness is also an optional integer between 0 and 255.
   ```bash
   # Set to green
   python3 color.py 0 255 0
   
-  # Set to green at very low brightness (example: 25/255)
-  python3 color.py 0 255 0 0 25
-
-  # Set to red
-  python3 color.py 255 0 0
-
-  # Set to white
-  python3 color.py 255 255 255 255
+  # Set to red at very low brightness (25/255)
+  python3 color.py 255 0 0 0 25
   ```
 
 - **Predefined Whites & Effects:**
-  The Android app has 8 hardcoded profiles that tune the exact RGBW values for different types of light. There is also a special "Candle Light" profile which triggers the bulb's hardware to continuously flicker. Use the `whites.py` script to access these profiles, and pass an optional brightness:
-  ```bash
-  # Daylight profile at max brightness
-  python3 whites.py "daylight"
-  
-  # Candle light flickering effect at 50 brightness
-  python3 whites.py "candle light" 50
-
-  # Set Bug Lighting (amber repellant profile)
-  python whites.py "bug lighting"
-  ```
-
-- **Full Color Animations (Effects):**
-  Effects like `Fireworks` were found to be complex 6-frame red/green/blue loop patterns stored entirely online. Because they aren't commands, the SDK uploads them manually to the bulb using `set_color_pattern`, then runs them with `start_color_pattern`.
+  Use `whites.py` for static profiles and `effects.py` for animations. Both scripts will output a **JSON array** of available modes if called without arguments.
 
   ```bash
-  # Upload and run the 6-frame Fireworks red-green-blue-orange-purple loop
-  python effects.py fireworks
-  
-  # See all available profiles
+  # List all available white profiles
   python3 whites.py
+  
+  # Set the early_morning profile
+  python3 whites.py early_morning
+  
+  # List all available animations
+  python3 effects.py
+  
+  # Play the fireworks animation
+  python3 effects.py fireworks
   ```
-
-## Permissions & Debugging
-
-If you run into Bluetooth permission errors during execution, or you want to debug the raw packet traffic (such as gathering Android HCI snoop logs), refer to the `ENABLEMENT.md` file in this repository for instructions.
 
 ### Meltdown Effects (Custom)
-We've added custom "Meltdown" effects to capture high-intensity, unstable atmospheric lighting:
-- **Core Breach**: Trigger via `python3 whites.py "core breach"`. Uses the bulb's hardware flicker mode to simulate a molten, unstable energy core with an orange/yellow glow.
-- **Radiation Leak**: Trigger via `python3 effects.py "radiation leak"`. A rapid (100ms) dynamic strobe that alternates between toxic green and ionizing cyan, simulating high-energy radiation bursts.
+We've added custom high-intensity effects:
+- **core_breach**: Trigger via `python3 whites.py core_breach`. Uses the bulb's hardware flicker mode for an unstable molten orange glow.
+- **radiation_leak**: Trigger via `python3 effects.py radiation_leak`. A rapid (100ms) strobe that alternates between toxic green and ionizing cyan.
 
-### Troubleshooting Animations
-If animations (like `fireworks` or `radiation leak`) don't seem to play:
+## Troubleshooting
+If animations don't play:
 1.  **Protocol Fix**: Ensure `IlumiApiCmdType.ILUMI_API_CMD_SET_COLOR_PATTERN` is set to `7` and `START_COLOR_PATTERN` is set to `8` in `ilumi_sdk.py`.
-2.  **Explicit Start**: The bulb sometimes requires an explicit start command after the pattern is uploaded. Both are handled by `play_dynamic_effect` in `effects.py`.
-SET_COLOR_PATTERN` and `START_COLOR_PATTERN` were incorrectly assumed to be 40/41, while the official Android app uses ordinals 7 and 8.
+2.  **Explicit Start**: `effects.py` handles both uploading and triggering the animation pattern.
 
-### Observing Mode
-For protocol debugging or camera captures, the `effects.py` script contains a commented-out "observing mode" loop at the end of the `play_dynamic_effect` function. Uncommenting this will keep the BLE connection alive for 10 seconds after triggering an animation, allowing you to capture the transition or more traffic.
+## Permissions & Debugging
+Refer to `ENABLEMENT.md` for Bluetooth permission setup and HCI snoop log gathering instructions. For protocol captures, you can uncomment the "observing mode" loop in `effects.py` to keep the connection alive.
