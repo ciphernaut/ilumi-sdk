@@ -22,6 +22,7 @@ async def main():
     parser.add_argument("--fade", type=int, default=None, help="Fade duration in milliseconds (default: 500 for single/mesh, 0 for sequential)")
     parser.add_argument("--no-fade", action="store_true", help="Disable fading (instant color change)")
     parser.add_argument("--mesh", action="store_true", help="Use mesh routing via a single bulb connection")
+    parser.add_argument("--stream", action="store_true", help="Connect to all bulbs concurrently for simultaneous shared fading")
     parser.add_argument("--proxy", type=str, help="Specify proxy bulb by name or MAC")
     parser.add_argument("--retries", type=int, default=3, help="Number of times to send mesh commands to ensure delivery (default: 3)")
     
@@ -44,7 +45,7 @@ async def main():
     if args.no_fade:
         args.fade = 0
     elif args.fade is None:
-        if args.mesh or len(targets) <= 1:
+        if args.mesh or getattr(args, 'stream', False) or len(targets) <= 1:
             args.fade = 500
         else:
             args.fade = 0
@@ -70,7 +71,52 @@ async def main():
                 if i < args.retries - 1:
                     await asyncio.sleep(0.3)
 
-    if args.mesh:
+    async def _stream_set_color():
+        if not args.json:
+            print(f"Streaming set_color to {len(targets)} targets (Fade: {args.fade}ms)...")
+        from ilumi_sdk import IlumiSDK
+        sdks = [IlumiSDK(mac) for mac in targets]
+        results = {}
+        active_sdks = []
+        try:
+            for sdk in sdks:
+                try:
+                    await sdk.__aenter__()
+                    active_sdks.append(sdk)
+                except Exception as e:
+                    results[sdk.mac_address] = {"success": False, "error": str(e)}
+            
+            if active_sdks:
+                coros = []
+                for sdk in active_sdks:
+                    if args.fade > 0:
+                        coros.append(sdk.set_color_smooth(args.r, args.g, args.b, args.w, args.brightness, duration_ms=args.fade))
+                    else:
+                        coros.append(sdk.set_color(args.r, args.g, args.b, args.w, args.brightness))
+                
+                outcomes = await asyncio.gather(*coros, return_exceptions=True)
+                for sdk, outcome in zip(active_sdks, outcomes):
+                    if isinstance(outcome, Exception):
+                        results[sdk.mac_address] = {"success": False, "error": str(outcome)}
+                    else:
+                        results[sdk.mac_address] = {"success": True, "error": None}
+        finally:
+            for sdk in active_sdks:
+                try:
+                    await sdk.__aexit__(None, None, None)
+                except:
+                    pass
+        return results
+
+    if args.stream:
+        if args.json:
+            with open(os.devnull, 'w') as f, redirect_stdout(f):
+                results = await _stream_set_color()
+            print(json.dumps({"command": "set_color", "targets": targets, "stream": True, "fade_ms": args.fade, "results": results}))
+        else:
+            await _stream_set_color()
+            print("Done.")
+    elif args.mesh:
         if args.json:
             with open(os.devnull, 'w') as f, redirect_stdout(f):
                 results = await execute_on_targets([proxy_target], _mesh_set_color)

@@ -44,26 +44,27 @@ async def main():
         else:
             args.fade = 0
 
-    fade_sec = int(args.fade / 1000)
+    # Fade is handled in milliseconds for internal consistency
+    fade_ms = args.fade
 
     async def _turn_on(sdk):
         if not args.json:
-            print(f"Turning on bulb {sdk.mac_address} (Fade: {fade_sec}s)...")
+            print(f"Turning on bulb {sdk.mac_address} (Fade: {fade_ms}ms)...")
         async with sdk:
-            await sdk.turn_on(transit=fade_sec)
+            await sdk.turn_on(transit=fade_ms)
 
     async def _mesh_turn_on(sdk):
         if not args.json:
-            print(f"[{sdk.mac_address}] Sending mesh proxy turn_on to {len(targets)} targets (Fade: {fade_sec}s, Retries: {args.retries})...")
+            print(f"[{sdk.mac_address}] Sending mesh proxy turn_on to {len(targets)} targets (Fade: {fade_ms}ms, Retries: {args.retries})...")
         async with sdk:
             for i in range(args.retries):
-                await sdk.turn_on(transit=fade_sec, targets=targets)
+                await sdk.turn_on(transit=fade_ms, targets=targets)
                 if i < args.retries - 1:
                     await asyncio.sleep(0.3)
         
     async def _stream_turn_on():
         if not args.json:
-            print(f"Streaming turn_on to {len(targets)} targets (Fade: {fade_sec}s)...")
+            print(f"Streaming turn_on to {len(targets)} targets (Fade: {fade_ms}ms)...")
         from ilumi_sdk import IlumiSDK
         sdks = [IlumiSDK(mac) for mac in targets]
         results = {}
@@ -77,7 +78,7 @@ async def main():
                     results[sdk.mac_address] = {"success": False, "error": str(e)}
             
             if active_sdks:
-                outcomes = await asyncio.gather(*(sdk.turn_on(transit=fade_sec) for sdk in active_sdks), return_exceptions=True)
+                outcomes = await asyncio.gather(*(sdk.turn_on(transit=fade_ms) for sdk in active_sdks), return_exceptions=True)
                 for sdk, outcome in zip(active_sdks, outcomes):
                     if isinstance(outcome, Exception):
                         results[sdk.mac_address] = {"success": False, "error": str(outcome)}
