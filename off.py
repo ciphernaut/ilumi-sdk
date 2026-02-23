@@ -17,6 +17,7 @@ async def main():
     parser.add_argument("--fade", type=int, default=None, help="Fade duration in milliseconds (default: 1000 for single/mesh, 0 for sequential)")
     parser.add_argument("--no-fade", action="store_true", help="Disable fading (instant off)")
     parser.add_argument("--mesh", action="store_true", help="Use mesh routing via a single bulb connection")
+    parser.add_argument("--stream", action="store_true", help="Connect to all bulbs concurrently for simultaneous shared fading")
     parser.add_argument("--proxy", type=str, help="Specify proxy bulb by name or MAC")
     parser.add_argument("--retries", type=int, default=3, help="Number of times to send mesh commands to ensure delivery (default: 3)")
     args = parser.parse_args()
@@ -38,7 +39,7 @@ async def main():
     if args.no_fade:
         args.fade = 0
     elif args.fade is None:
-        if args.mesh or len(targets) <= 1:
+        if args.mesh or getattr(args, 'stream', False) or len(targets) <= 1:
             args.fade = 1000
         else:
             args.fade = 0
@@ -60,7 +61,44 @@ async def main():
                 if i < args.retries - 1:
                     await asyncio.sleep(0.3)
         
-    if args.mesh:
+    async def _stream_turn_off():
+        if not args.json:
+            print(f"Streaming turn_off to {len(targets)} targets (Fade: {fade_sec}s)...")
+        from ilumi_sdk import IlumiSDK
+        sdks = [IlumiSDK(mac) for mac in targets]
+        results = {}
+        active_sdks = []
+        try:
+            for sdk in sdks:
+                try:
+                    await sdk.__aenter__()
+                    active_sdks.append(sdk)
+                except Exception as e:
+                    results[sdk.mac_address] = {"success": False, "error": str(e)}
+            
+            if active_sdks:
+                outcomes = await asyncio.gather(*(sdk.turn_off(transit=fade_sec) for sdk in active_sdks), return_exceptions=True)
+                for sdk, outcome in zip(active_sdks, outcomes):
+                    if isinstance(outcome, Exception):
+                        results[sdk.mac_address] = {"success": False, "error": str(outcome)}
+                    else:
+                        results[sdk.mac_address] = {"success": True, "error": None}
+        finally:
+            for sdk in active_sdks:
+                try:
+                    await sdk.__aexit__(None, None, None)
+                except:
+                    pass
+        return results
+
+    if args.stream:
+        if args.json:
+            with open(os.devnull, 'w') as f, redirect_stdout(f):
+                results = await _stream_turn_off()
+            print(json.dumps({"command": "turn_off", "targets": targets, "stream": True, "fade_ms": args.fade, "results": results}))
+        else:
+            await _stream_turn_off()
+    elif args.mesh:
         if args.json:
             with open(os.devnull, 'w') as f, redirect_stdout(f):
                 results = await execute_on_targets([proxy_target], _mesh_turn_off)
