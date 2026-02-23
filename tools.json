@@ -1,0 +1,187 @@
+{
+    "tools": [
+        {
+            "name": "turn_on",
+            "description": "Turns the Ilumi bulb(s) on.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "delay": {
+                        "type": "integer",
+                        "description": "Delay in seconds before turning on."
+                    },
+                    "transit": {
+                        "type": "integer",
+                        "description": "Fade-in duration in milliseconds."
+                    },
+                    "targets": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "Optional list of target MAC addresses."
+                    }
+                }
+            }
+        },
+        {
+            "name": "turn_off",
+            "description": "Turns the Ilumi bulb(s) off.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "delay": {
+                        "type": "integer",
+                        "description": "Delay in seconds before turning off."
+                    },
+                    "transit": {
+                        "type": "integer",
+                        "description": "Fade-out duration in milliseconds."
+                    },
+                    "targets": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "Optional list of target MAC addresses."
+                    }
+                }
+            }
+        },
+        {
+            "name": "set_color",
+            "description": "Sets the color and brightness of the bulb(s).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "r": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 255
+                    },
+                    "g": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 255
+                    },
+                    "b": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 255
+                    },
+                    "w": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 255,
+                        "description": "White channel intensity."
+                    },
+                    "brightness": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 255
+                    },
+                    "targets": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "Optional list of target MAC addresses."
+                    }
+                },
+                "required": [
+                    "r",
+                    "g",
+                    "b"
+                ]
+            }
+        },
+        {
+            "name": "set_color_smooth",
+            "description": "Fades the bulb(s) to a specific color over a duration.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "r": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 255
+                    },
+                    "g": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 255
+                    },
+                    "b": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 255
+                    },
+                    "w": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 255
+                    },
+                    "brightness": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 255
+                    },
+                    "duration_ms": {
+                        "type": "integer",
+                        "description": "Fade duration in milliseconds."
+                    },
+                    "targets": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "Optional list of target MAC addresses."
+                    }
+                },
+                "required": [
+                    "r",
+                    "g",
+                    "b",
+                    "duration_ms"
+                ]
+            }
+        },
+        {
+            "name": "get_bulb_color",
+            "description": "Retrieves the current color and status of the bulb.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "targets": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "Optional target MAC address to query (via proxy)."
+                    }
+                }
+            }
+        },
+        {
+            "name": "get_device_info",
+            "description": "Retrieves hardware and firmware metadata from the bulb.",
+            "parameters": {
+                "type": "object",
+                "properties": {}
+            }
+        },
+        {
+            "name": "discover",
+            "description": "Scans for available Ilumi bulbs in BLE range.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "timeout": {
+                        "type": "number",
+                        "default": 5.0
+                    }
+                }
+            }
+        }
+    ]
+}

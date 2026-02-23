@@ -45,3 +45,20 @@ Action: Trigger a custom effect on bulb "four".
 ```bash
 python3 effects.py radiation_leak --name four --json
 ```
+
+## 3. Core SDK & GAI Integration
+
+For complex logic or persistent control, AI agents should use the `IlumiSDK` class in `ilumi_sdk.py`.
+
+### AI Discoverability
+- **Discovery**: Use `await IlumiSDK.discover()` to find bulbs.
+- **Connection**: Always use `async with IlumiSDK(mac_address) as sdk:` for reliable communication.
+- **Function Calling**: Use `tools.json` to understand the standard parameter schemas for bulb control.
+
+### GAI Readiness
+- **Logging**: Internal SDK logs are sent to `stderr`.
+- **JSON Output**: CLI tools prioritize parsable JSON on `stdout`.
+- **Safety**: Raw commands are protected by `_send_raw_command` with explicit "Brick Clause" warnings in docstrings.
+
+### Protocol Knowledge
+Deep technical details on the GATT protocol (sequence numbering, proxy endianness, etc.) can be found in `PROTOCOL.md`.
