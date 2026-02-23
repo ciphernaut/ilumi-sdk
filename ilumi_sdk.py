@@ -46,6 +46,7 @@ class IlumiApiCmdType:
     ILUMI_API_CMD_ADD_ACTION = 50
     ILUMI_API_CMD_SET_COLOR_NEED_RESP = 54
     ILUMI_API_CMD_CONFIG = 65
+    ILUMI_API_CMD_QUERY_ROUTING = 31
 
 class IlumiConfigCmdType:
     """Mapping of commands within the ILUMI_API_CMD_CONFIG type."""
@@ -64,12 +65,14 @@ class IlumiSDK:
         self.mac_address = mac_address or config.get_config("mac_address")
         self.network_key = config.get_config("network_key", 0)
         self.seq_num = config.get_config("seq_num", 0)
-        self.dfu_key = int(time.time()) & 0xFFFFFFFF
+        self.dfu_key = config.get_config("dfu_key", 0x12345678)
         self.client: Optional[BleakClient] = None
         self._last_device_info: Optional[Dict[str, Any]] = None
         self._last_color: Optional[Dict[str, int]] = None
         self._device_info_event = asyncio.Event()
         self._color_event = asyncio.Event()
+        self._mesh_info: List[Dict[str, Any]] = []
+        self._mesh_event = asyncio.Event()
 
     async def __aenter__(self):
         """Context manager to maintain a persistent connection."""
@@ -130,6 +133,32 @@ class IlumiSDK:
                             "brightness": data[8]
                         }
                         self._color_event.set()
+                
+                elif cmd_type == IlumiApiCmdType.ILUMI_API_CMD_QUERY_ROUTING:
+                    if len(data) >= 4:
+                        payload_size = struct.unpack("<H", data[2:4])[0]
+                        payload = data[4:4+payload_size]
+                        
+                        # Each entry is 8 bytes: MAC(6), Hops(1), RSSI(1)
+                        entry_size = 8
+                        for i in range(len(payload) // entry_size):
+                            entry = payload[i*entry_size : (i+1)*entry_size]
+                            if len(entry) < 8: continue
+                            mac_bytes = entry[0:6]
+                            hops = entry[6]
+                            rssi = struct.unpack('b', entry[7:8])[0]
+                            # MAC is little-endian in payload
+                            mac_str = ":".join(f"{b:02X}" for b in mac_bytes[::-1])
+                            self._mesh_info.append({
+                                "address": mac_str,
+                                "hops": hops,
+                                "rssi": rssi
+                            })
+                        
+                        # Total size check to see if we should signal completion
+                        # For now, we signal after each block since we don't know the total
+                        # The high-level method will wait and collect for a bit.
+                        self._mesh_event.set()
 
         await self.client.start_notify(ILUMI_API_CHAR_UUID, notification_handler)
         return self
@@ -401,6 +430,33 @@ class IlumiSDK:
         
         logger.info(f"Sending DFU mode entry command with key: {hex(self.dfu_key)}")
         await self._send_command(cmd + payload)
+
+    async def get_mesh_info(self) -> List[Dict[str, Any]]:
+        """
+        Retrieves neighbor mesh information from the bulb.
+        Returns a list of neighbors with MAC addresses and RSSI values.
+        """
+        self._mesh_info = []
+        self._mesh_event.clear()
+        
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_QUERY_ROUTING)
+        logger.info(f"Querying mesh routing info from {self.mac_address}...")
+        await self._send_command(header)
+        
+        try:
+            # We wait for multiple notifications as mesh tables can be large.
+            # We'll wait until no new data arrives for 1 second, or total timeout.
+            while True:
+                try:
+                    await asyncio.wait_for(self._mesh_event.wait(), timeout=1.5)
+                    self._mesh_event.clear()
+                except asyncio.TimeoutError:
+                    break
+            
+            return self._mesh_info
+        except Exception as e:
+            logger.error(f"Error retrieving mesh info: {e}")
+            return self._mesh_info
 
 async def execute_on_targets(targets: List[str], coro_func: Callable) -> Dict[str, Any]:
     """Helper to execute an SDK task across multiple bulbs."""
