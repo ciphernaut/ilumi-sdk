@@ -1,7 +1,11 @@
-import sys
+import argparse
 import asyncio
 import json
-from ilumi_sdk import IlumiSDK
+import os
+import sys
+from contextlib import redirect_stdout
+from ilumi_sdk import execute_on_targets
+import config
 
 PROFILES = {
     "cool_white": (0, 68, 111, 255),
@@ -25,31 +29,56 @@ PROFILES = {
 }
 
 async def main():
-    if len(sys.argv) < 2:
-        # Machine-parsable JSON output of available profiles
+    parser = argparse.ArgumentParser(description="Set white profiles for Ilumi bulb(s)")
+    parser.add_argument("profile", type=str, nargs="?", help="Profile name (leave empty to list)")
+    parser.add_argument("brightness", type=int, nargs="?", default=255, help="Brightness (0-255)")
+    parser.add_argument("--mac", type=str, help="Target a specific MAC address")
+    parser.add_argument("--name", type=str, help="Target a specific bulb by name")
+    parser.add_argument("--group", type=str, help="Target a specific group")
+    parser.add_argument("--all", action="store_true", help="Target all enrolled bulbs")
+    parser.add_argument("--json", action="store_true", help="Output execution results strictly as JSON")
+    
+    args = parser.parse_args()
+
+    if not args.profile:
         print(json.dumps(list(PROFILES.keys())))
-        sys.exit(0)
+        return
         
-    profile_name = sys.argv[1].lower().replace(" ", "_")
-    brightness = int(sys.argv[2]) if len(sys.argv) > 2 else 255
+    profile_name = args.profile.lower().replace(" ", "_")
 
     if profile_name not in PROFILES:
-        print(f"Error: Profile '{profile_name}' not found.")
-        print(f"Valid profiles: {json.dumps(list(PROFILES.keys()))}")
-        sys.exit(1)
+        if args.json:
+            print(json.dumps({"error": f"Profile '{profile_name}' not found", "available": list(PROFILES.keys())}))
+        else:
+            print(f"Error: Profile '{profile_name}' not found.")
+            print(f"Valid profiles: {json.dumps(list(PROFILES.keys()))}")
+        return
 
     r, g, b, w = PROFILES[profile_name]
     
-    sdk = IlumiSDK()
-    async with sdk:
-        print(f"Setting profile '{profile_name}' for bulb at {sdk.mac_address} at brightness {brightness}...")
-        
-        if profile_name in ["candle_light", "core_breach"]:
-            await sdk.set_candle_mode(r, g, b, w, brightness)
+    targets = config.resolve_targets(args.mac, args.name, args.group, args.all)
+    if not targets:
+        if args.json:
+            print(json.dumps({"error": "No targets resolved"}))
         else:
-            await sdk.set_color(r, g, b, w, brightness)
-        
-    print("Done.")
+            print("No targets resolved. Please run enroll.py or check your arguments.")
+        return
+
+    async def _set_profile(sdk):
+        print(f"[{sdk.mac_address}] Setting profile '{profile_name}'...")
+        async with sdk:
+            if profile_name in ["candle_light", "core_breach"]:
+                await sdk.set_candle_mode(r, g, b, w, args.brightness)
+            else:
+                await sdk.set_color(r, g, b, w, args.brightness)
+
+    if args.json:
+        with open(os.devnull, 'w') as f, redirect_stdout(f):
+            results = await execute_on_targets(targets, _set_profile)
+        print(json.dumps({"command": "set_white_profile", "profile": profile_name, "targets": targets, "results": results}))
+    else:
+        await execute_on_targets(targets, _set_profile)
+        print("Done.")
 
 if __name__ == "__main__":
     asyncio.run(main())
