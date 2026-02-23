@@ -14,14 +14,12 @@ async def main():
     parser.add_argument("--group", type=str, help="Target a specific group")
     parser.add_argument("--all", action="store_true", help="Target all enrolled bulbs")
     parser.add_argument("--json", action="store_true", help="Output execution results strictly as JSON")
-    parser.add_argument("--fade", type=int, default=1000, help="Fade duration in milliseconds (default: 1000)")
+    parser.add_argument("--fade", type=int, default=None, help="Fade duration in milliseconds (default: 1000 for single/mesh, 0 for sequential)")
     parser.add_argument("--no-fade", action="store_true", help="Disable fading (instant on)")
+    parser.add_argument("--mesh", action="store_true", help="Use mesh routing via a single bulb connection")
+    parser.add_argument("--retries", type=int, default=3, help="Number of times to send mesh commands to ensure delivery (default: 3)")
     args = parser.parse_args()
     
-    if args.no_fade:
-        args.fade = 0
-    fade_sec = int(args.fade / 1000)
-
     targets = config.resolve_targets(args.mac, args.name, args.group, args.all)
     if not targets:
         if args.json:
@@ -30,18 +28,47 @@ async def main():
             print("No targets resolved. Please run enroll.py or check your arguments.")
         return
 
+    if args.no_fade:
+        args.fade = 0
+    elif args.fade is None:
+        if args.mesh or len(targets) <= 1:
+            args.fade = 1000
+        else:
+            args.fade = 0
+
+    fade_sec = int(args.fade / 1000)
+
+
+
     async def _turn_on(sdk):
         if not args.json:
             print(f"Turning on bulb {sdk.mac_address} (Fade: {fade_sec}s)...")
         async with sdk:
             await sdk.turn_on(transit=fade_sec)
+
+    async def _mesh_turn_on(sdk):
+        if not args.json:
+            print(f"[{sdk.mac_address}] Sending mesh proxy turn_on to {len(targets)} targets (Fade: {fade_sec}s, Retries: {args.retries})...")
+        async with sdk:
+            for i in range(args.retries):
+                await sdk.turn_on(transit=fade_sec, targets=targets)
+                if i < args.retries - 1:
+                    await asyncio.sleep(0.3)
         
-    if args.json:
-        with open(os.devnull, 'w') as f, redirect_stdout(f):
-            results = await execute_on_targets(targets, _turn_on)
-        print(json.dumps({"command": "turn_on", "targets": targets, "fade_ms": args.fade, "results": results}))
+    if args.mesh and len(targets) > 1:
+        if args.json:
+            with open(os.devnull, 'w') as f, redirect_stdout(f):
+                results = await execute_on_targets([targets[0]], _mesh_turn_on)
+            print(json.dumps({"command": "turn_on", "targets": targets, "mesh": True, "fade_ms": args.fade, "results": results}))
+        else:
+            await execute_on_targets([targets[0]], _mesh_turn_on)
     else:
-        await execute_on_targets(targets, _turn_on)
+        if args.json:
+            with open(os.devnull, 'w') as f, redirect_stdout(f):
+                results = await execute_on_targets(targets, _turn_on)
+            print(json.dumps({"command": "turn_on", "targets": targets, "mesh": False, "fade_ms": args.fade, "results": results}))
+        else:
+            await execute_on_targets(targets, _turn_on)
 
 if __name__ == "__main__":
     asyncio.run(main())

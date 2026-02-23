@@ -19,13 +19,13 @@ async def main():
     parser.add_argument("--group", type=str, help="Target a specific group")
     parser.add_argument("--all", action="store_true", help="Target all enrolled bulbs")
     parser.add_argument("--json", action="store_true", help="Output execution results strictly as JSON")
-    parser.add_argument("--fade", type=int, default=500, help="Fade duration in milliseconds (default: 500)")
+    parser.add_argument("--fade", type=int, default=None, help="Fade duration in milliseconds (default: 500 for single/mesh, 0 for sequential)")
     parser.add_argument("--no-fade", action="store_true", help="Disable fading (instant color change)")
+    parser.add_argument("--mesh", action="store_true", help="Use mesh routing via a single bulb connection")
+    parser.add_argument("--retries", type=int, default=3, help="Number of times to send mesh commands to ensure delivery (default: 3)")
     
     args = parser.parse_args()
     
-    if args.no_fade:
-        args.fade = 0
     targets = config.resolve_targets(args.mac, args.name, args.group, args.all)
     if not targets:
         if args.json:
@@ -33,6 +33,14 @@ async def main():
         else:
             print("No targets resolved. Please run enroll.py or check your arguments.")
         return
+
+    if args.no_fade:
+        args.fade = 0
+    elif args.fade is None:
+        if args.mesh or len(targets) <= 1:
+            args.fade = 500
+        else:
+            args.fade = 0
 
     async def _set_color(sdk):
         if not args.json:
@@ -43,13 +51,34 @@ async def main():
             else:
                 await sdk.set_color(args.r, args.g, args.b, args.w, args.brightness)
 
-    if args.json:
-        with open(os.devnull, 'w') as f, redirect_stdout(f):
-            results = await execute_on_targets(targets, _set_color)
-        print(json.dumps({"command": "set_color", "targets": targets, "fade_ms": args.fade, "results": results}))
+    async def _mesh_set_color(sdk):
+        if not args.json:
+            print(f"[{sdk.mac_address}] Sending mesh proxy color change to {len(targets)} targets (Fade: {args.fade}ms, Retries: {args.retries})...")
+        async with sdk:
+            for i in range(args.retries):
+                if args.fade > 0:
+                    await sdk.set_color_smooth(args.r, args.g, args.b, args.w, args.brightness, duration_ms=args.fade, targets=targets)
+                else:
+                    await sdk.set_color(args.r, args.g, args.b, args.w, args.brightness, targets=targets)
+                if i < args.retries - 1:
+                    await asyncio.sleep(0.3)
+
+    if args.mesh and len(targets) > 1:
+        if args.json:
+            with open(os.devnull, 'w') as f, redirect_stdout(f):
+                results = await execute_on_targets([targets[0]], _mesh_set_color)
+            print(json.dumps({"command": "set_color", "targets": targets, "mesh": True, "fade_ms": args.fade, "results": results}))
+        else:
+            await execute_on_targets([targets[0]], _mesh_set_color)
+            print("Done.")
     else:
-        await execute_on_targets(targets, _set_color)
-        print("Done.")
+        if args.json:
+            with open(os.devnull, 'w') as f, redirect_stdout(f):
+                results = await execute_on_targets(targets, _set_color)
+            print(json.dumps({"command": "set_color", "targets": targets, "mesh": False, "fade_ms": args.fade, "results": results}))
+        else:
+            await execute_on_targets(targets, _set_color)
+            print("Done.")
 
 if __name__ == "__main__":
     asyncio.run(main())

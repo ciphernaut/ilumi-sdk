@@ -147,7 +147,6 @@ class IlumiSDK:
     
                 chunk_struct = struct.pack("<H H 10s", data_length, offset, bytes(chunk_payload))
                 cmd_header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_DATA_CHUNK)
-                
                 print(f"Sending chunk {offset}/{data_length}")
                 await target_client.write_gatt_char(ILUMI_API_CHAR_UUID, cmd_header + chunk_struct, response=True)
                 await asyncio.sleep(0.05)
@@ -160,6 +159,22 @@ class IlumiSDK:
             async with self as managed_sdk:
                 await _do_send(managed_sdk.client)
 
+    async def send_proxy_message(self, target_macs, inner_payload):
+        """Routes an inner API payload to a list of target MAC addresses via the mesh."""
+        service_type_ttl = 15 # Default routing TTL
+        addr_amount = len(target_macs)
+        proxy_data_len = (addr_amount * 6) + len(inner_payload)
+        
+        proxy_cmd = self._pack_header(33) # ILUMI_API_CMD_PROXY_MSG
+        proxy_header = struct.pack("<B B H", service_type_ttl, addr_amount, proxy_data_len)
+        
+        mac_bytes = bytearray()
+        for mac in target_macs:
+            mac_parts = [int(x, 16) for x in mac.split(':')]
+            mac_bytes.extend(bytes(mac_parts))
+            
+        final_payload = proxy_cmd + proxy_header + mac_bytes + inner_payload
+        await self._send_chunked_command(final_payload)
     async def commission(self, new_network_key, group_id, node_id):
         self.network_key = new_network_key
         cmd = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_COMMISSION_WITH_ID)
@@ -176,23 +191,32 @@ class IlumiSDK:
             print(f"Failed to commission: {e}")
             return False
 
-    async def turn_on(self, delay=0, transit=0):
+    async def turn_on(self, delay=0, transit=0, targets=None):
         cmd = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_TURN_ON)
         payload = struct.pack("<H H", delay, transit)
-        await self._send_command(cmd + payload)
+        if targets:
+            await self.send_proxy_message(targets, cmd + payload)
+        else:
+            await self._send_command(cmd + payload)
 
-    async def turn_off(self, delay=0, transit=0):
+    async def turn_off(self, delay=0, transit=0, targets=None):
         cmd = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_TURN_OFF)
         payload = struct.pack("<H H", delay, transit)
-        await self._send_command(cmd + payload)
+        if targets:
+            await self.send_proxy_message(targets, cmd + payload)
+        else:
+            await self._send_command(cmd + payload)
 
-    async def set_color(self, r, g, b, w=0, brightness=255):
+    async def set_color(self, r, g, b, w=0, brightness=255, targets=None):
         clamp = lambda x: max(0, min(255, int(x)))
         cmd = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_SET_COLOR_NEED_RESP)
         payload = struct.pack("<B B B B B B B", clamp(r), clamp(g), clamp(b), clamp(w), clamp(brightness), 0, 0)
-        await self._send_command(cmd + payload)
+        if targets:
+            await self.send_proxy_message(targets, cmd + payload)
+        else:
+            await self._send_command(cmd + payload)
 
-    async def set_color_smooth(self, r, g, b, w=0, brightness=255, duration_ms=500, delay_sec=0):
+    async def set_color_smooth(self, r, g, b, w=0, brightness=255, duration_ms=500, delay_sec=0, targets=None):
         clamp = lambda x: max(0, min(255, int(x)))
         cmd = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_SET_COLOR_SMOOTH)
         
@@ -207,36 +231,28 @@ class IlumiSDK:
         payload = struct.pack("<B B B B B B H B B", 
                               clamp(r), clamp(g), clamp(b), clamp(w), clamp(brightness), 0,
                               time_val, time_unit, clamp(delay_sec))
-        await self._send_command(cmd + payload)
-
-    async def set_color_smooth(self, r, g, b, w=0, brightness=255, duration_ms=500, delay_sec=0):
-        clamp = lambda x: max(0, min(255, int(x)))
-        cmd = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_SET_COLOR_SMOOTH)
-        
-        # Determine whether to use milliseconds or seconds. Max ms interval is ~65s.
-        if duration_ms < 65535:
-            time_val = int(duration_ms)
-            time_unit = 0  # TIME_UNIT_MILLISECOND
+        if targets:
+            await self.send_proxy_message(targets, cmd + payload)
         else:
-            time_val = int(duration_ms / 1000)
-            time_unit = 1  # TIME_UNIT_SECOND
-            
-        payload = struct.pack("<B B B B B B H B B", 
-                              clamp(r), clamp(g), clamp(b), clamp(w), clamp(brightness), 0,
-                              time_val, time_unit, clamp(delay_sec))
-        await self._send_command(cmd + payload)
+            await self._send_command(cmd + payload)
 
-    async def set_color_fast(self, r, g, b, w=0, brightness=255):
+    async def set_color_fast(self, r, g, b, w=0, brightness=255, targets=None):
         clamp = lambda x: max(0, min(255, int(x)))
         cmd = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_SET_COLOR)
         payload = struct.pack("<B B B B B B B", clamp(r), clamp(g), clamp(b), clamp(w), clamp(brightness), 0, 0)
-        await self._send_command_fast(cmd + payload)
+        if targets:
+            await self.send_proxy_message(targets, cmd + payload)
+        else:
+            await self._send_command_fast(cmd + payload)
 
-    async def set_candle_mode(self, r, g, b, w=0, brightness=255):
+    async def set_candle_mode(self, r, g, b, w=0, brightness=255, targets=None):
         clamp = lambda x: max(0, min(255, int(x)))
         cmd = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_SET_CANDL_MODE)
         payload = struct.pack("<B B B B B B B", clamp(r), clamp(g), clamp(b), clamp(w), clamp(brightness), 0, 0)
-        await self._send_command(cmd + payload)
+        if targets:
+            await self.send_proxy_message(targets, cmd + payload)
+        else:
+            await self._send_command(cmd + payload)
 
     async def set_color_pattern(self, scene_idx, frames, repeatable=1, start_now=1):
         clamp = lambda x: max(0, min(255, int(x)))
