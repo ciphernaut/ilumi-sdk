@@ -17,29 +17,36 @@ This repository provides a Python interface for controlling Ilumi Smart Bulbs vi
    pip install bleak
    ```
 
-2. **Enroll the Bulb (First Time Only):**
-   Before you can control the bulb, you need to enroll your machine to it. This script will discover your bulb, assign it a network key, and save the session configuration (including the anti-replay sequence number) to `ilumi_config.json`.
+2. **Enroll the Bulb(s) (First Time Only):**
+   Before you can control the bulbs, you need to enroll your machine to them. The interactive enrollment script will discover your bulbs, **flash them green** so you can physically identify them, and ask you to assign a `name` and a `group`.
    ```bash
    python3 enroll.py
    ```
+   *This saves the mesh configuration to `ilumi_config.json`.*
 
 ## Usage
 
-Once enrolled, you can use the provided simple scripts to control the bulb:
+Once enrolled, you can use the provided scripts to control a single bulb, a group, or your entire fleet simultaneously!
+
+Every control script supports the following routing arguments:
+* `--name [NAME]` (e.g. `--name kitchen`)
+* `--group [GROUP]` (e.g. `--group lounge`)
+* `--all` (Targets every enrolled bulb)
+* `--mac [MAC_ADDRESS]` (Direct targeting)
 
 - **Turn On / Off:**
   ```bash
-  python3 on.py
-  python3 off.py
+  python3 on.py --all
+  python3 off.py --group lounge
   ```
 
 - **Set Color (Red, Green, Blue, White [optional], Brightness [optional]):**
   ```bash
-  # Set to green
-  python3 color.py 0 255 0
+  # Set the kitchen to green
+  python3 color.py 0 255 0 --name kitchen
   
-  # Set to red at very low brightness (25/255)
-  python3 color.py 255 0 0 0 25
+  # Set the whole house to red at very low brightness (25/255)
+  python3 color.py 255 0 0 0 25 --all
   ```
 
 - **Predefined Whites & Effects:**
@@ -49,14 +56,14 @@ Once enrolled, you can use the provided simple scripts to control the bulb:
   # List all available white profiles
   python3 whites.py
   
-  # Set the early_morning profile
-  python3 whites.py early_morning
+  # Set the early_morning profile on all bulbs
+  python3 whites.py early_morning --all
   
   # List all available animations
   python3 effects.py
   
-  # Play the fireworks animation
-  python3 effects.py fireworks
+  # Play the fireworks animation in the lounge
+  python3 effects.py fireworks --group lounge
   ```
 
 ### Meltdown Effects (Custom)
@@ -69,14 +76,14 @@ We've added custom high-intensity effects:
 This SDK supports bypassing the standard BLE acknowledgement sequence (using `write_without_response`) to achieve high-throughput, UDP-like streaming to the bulb (upwards of ~20 frames per second). 
 
 ### Live Streaming & Audio Reactivity
-- **Test Stream:** Run a 20 FPS high-speed color sweep:
+- **Test Stream:** Run a 20 FPS high-speed color sweep across all bulbs:
   ```bash
-  python3 stream.py --fps 20 --duration 10
+  python3 stream.py --fps 20 --duration 10 --all
   ```
-- **Audio Visualizer:** Maps your system microphone's bass to Red and treble to Blue in real-time.
+- **Audio Visualizer:** Maps your system microphone's bass to Red and treble to Blue in real-time. Syncs perfectly across bulb groups.
   ```bash
   pip install sounddevice soundfile numpy scipy
-  python3 audio_stream.py
+  python3 audio_stream.py --group lounge
   ```
 
 ### Smart Home Ecosystems (MQTT)
@@ -89,9 +96,9 @@ Integrate the bulb seamlessly into **Home Assistant** (or OpenHAB/Node-RED) usin
 
 ### Professional Lighting Software (Art-Net DMX)
 Control the bulb natively using professional lighting consoles and VJ software (like QLC+, Resolume, and SoundSwitch).
-- **Network DMX Interface:** Listens for standard Art-Net UDP Packets (`OpDmx`) on Port `6454` and maps DMX channels 1-4 directly to the bulb's R, G, B, and W LEDs.
+- **Network DMX Interface:** Listens for standard Art-Net UDP Packets (`OpDmx`) on Port `6454` and maps DMX channels 1-4 directly to the bulbs' R, G, B, and W LEDs asynchronously.
   ```bash
-  python3 artnet_stream.py --universe 0 --channel 1
+  python3 artnet_stream.py --universe 0 --channel 1 --group stage
   ```
 
 ## Troubleshooting

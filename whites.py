@@ -1,6 +1,9 @@
 import argparse
 import asyncio
 import json
+import os
+import sys
+from contextlib import redirect_stdout
 from ilumi_sdk import execute_on_targets
 import config
 
@@ -33,6 +36,7 @@ async def main():
     parser.add_argument("--name", type=str, help="Target a specific bulb by name")
     parser.add_argument("--group", type=str, help="Target a specific group")
     parser.add_argument("--all", action="store_true", help="Target all enrolled bulbs")
+    parser.add_argument("--json", action="store_true", help="Output execution results strictly as JSON")
     
     args = parser.parse_args()
 
@@ -43,15 +47,21 @@ async def main():
     profile_name = args.profile.lower().replace(" ", "_")
 
     if profile_name not in PROFILES:
-        print(f"Error: Profile '{profile_name}' not found.")
-        print(f"Valid profiles: {json.dumps(list(PROFILES.keys()))}")
+        if args.json:
+            print(json.dumps({"error": f"Profile '{profile_name}' not found", "available": list(PROFILES.keys())}))
+        else:
+            print(f"Error: Profile '{profile_name}' not found.")
+            print(f"Valid profiles: {json.dumps(list(PROFILES.keys()))}")
         return
 
     r, g, b, w = PROFILES[profile_name]
     
     targets = config.resolve_targets(args.mac, args.name, args.group, args.all)
     if not targets:
-        print("No targets resolved. Please run enroll.py or check your arguments.")
+        if args.json:
+            print(json.dumps({"error": "No targets resolved"}))
+        else:
+            print("No targets resolved. Please run enroll.py or check your arguments.")
         return
 
     async def _set_profile(sdk):
@@ -62,8 +72,13 @@ async def main():
             else:
                 await sdk.set_color(r, g, b, w, args.brightness)
 
-    await execute_on_targets(targets, _set_profile)
-    print("Done.")
+    if args.json:
+        with open(os.devnull, 'w') as f, redirect_stdout(f):
+            results = await execute_on_targets(targets, _set_profile)
+        print(json.dumps({"command": "set_white_profile", "profile": profile_name, "targets": targets, "results": results}))
+    else:
+        await execute_on_targets(targets, _set_profile)
+        print("Done.")
 
 if __name__ == "__main__":
     asyncio.run(main())

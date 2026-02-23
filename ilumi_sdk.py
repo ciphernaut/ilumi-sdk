@@ -251,12 +251,17 @@ class IlumiSDK:
 async def execute_on_targets(targets, coro_func):
     """
     Executes a given asynchronous function sequentially across all target MAC addresses.
-    Using asyncio.gather can overwhelm the Host Bluetooth Controller with simultaneous 
-    connection requests, resulting in 'Operation already in progress' errors.
+    Returns a dictionary mapping MAC address to an execution result object:
+    { "AA:BB:..": {"success": True/False, "error": "Optional error string"} }
     """
+    results = {}
     for mac in targets:
         sdk = IlumiSDK(mac)
         try:
             await coro_func(sdk)
+            results[mac] = {"success": True, "error": None}
         except Exception as e:
             print(f"[{mac}] Error: {e}")
+            results[mac] = {"success": False, "error": str(e)}
+            
+    return results
