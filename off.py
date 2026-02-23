@@ -45,8 +45,6 @@ async def main():
 
     fade_sec = int(args.fade / 1000)
 
-
-
     async def _turn_off(sdk):
         if not args.json:
             print(f"Turning off bulb {sdk.mac_address} (Fade: {fade_sec}s)...")

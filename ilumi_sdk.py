@@ -280,9 +280,12 @@ class IlumiSDK:
             time_val = int(duration_ms / 1000)
             time_unit = 1  # TIME_UNIT_SECOND
             
-        payload = struct.pack("<B B B B B B H B B", 
+        # Java gatt_ilumi_set_color_smooth_t expects:
+        # time(U16), unit(U8), color[r,g,b,w,brightness,reserved](6xU8), action_delay_in_second(U8)
+        payload = struct.pack("<H B B B B B B B B", 
+                              time_val, time_unit,
                               clamp(r), clamp(g), clamp(b), clamp(w), clamp(brightness), 0,
-                              time_val, time_unit, clamp(delay_sec))
+                              clamp(delay_sec))
         if targets:
             await self.send_proxy_message(targets, cmd + payload)
         else:
