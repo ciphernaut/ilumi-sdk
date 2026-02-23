@@ -247,3 +247,16 @@ class IlumiSDK:
         print(f"Sending DFU mode entry command with key: {hex(self.dfu_key)}")
         await self._send_command(cmd + payload)
         print("Device should be rebooting into DFU mode...")
+
+async def execute_on_targets(targets, coro_func):
+    """
+    Executes a given asynchronous function sequentially across all target MAC addresses.
+    Using asyncio.gather can overwhelm the Host Bluetooth Controller with simultaneous 
+    connection requests, resulting in 'Operation already in progress' errors.
+    """
+    for mac in targets:
+        sdk = IlumiSDK(mac)
+        try:
+            await coro_func(sdk)
+        except Exception as e:
+            print(f"[{mac}] Error: {e}")

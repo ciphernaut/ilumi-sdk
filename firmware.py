@@ -88,19 +88,31 @@ async def update_firmware(mac, file_path):
 def main():
     parser = argparse.ArgumentParser(description="Ilumi Firmware Utility")
     parser.add_argument("command", choices=["version", "dfu", "update"], help="Command to run")
-    parser.add_argument("--mac", help="MAC address of the bulb (falls back to enrollment config)")
+    parser.add_argument("--mac", help="MAC address of the bulb")
+    parser.add_argument("--name", type=str, help="Target a specific bulb by name")
+    parser.add_argument("--group", type=str, help="Target a specific group")
+    parser.add_argument("--all", action="store_true", help="Target all enrolled bulbs")
     parser.add_argument("--file", help="Path to firmware file (required for 'update')")
     parser.add_argument("--force", action="store_true", help="Force DFU trigger without confirmation")
 
     args = parser.parse_args()
 
+    import config
+    targets = config.resolve_targets(args.mac, args.name, args.group, args.all)
+    if not targets:
+        print("No targets resolved. Please check your arguments.")
+        return
+
     if args.command == "version":
-        asyncio.run(check_version(args.mac))
+        # Check versions sequentially since it involves waiting for notifications
+        for mac in targets:
+            asyncio.run(check_version(mac))
     elif args.command == "dfu":
         if not args.force:
             print("Confirmation required for DFU. Use --force to proceed.")
             sys.exit(1)
-        asyncio.run(trigger_dfu(args.mac))
+        for mac in targets:
+            asyncio.run(trigger_dfu(mac))
 
 if __name__ == "__main__":
     main()
