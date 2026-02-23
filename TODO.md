@@ -15,4 +15,4 @@ The following features exist in the original Ilumi Android App's BLE GATT protoc
 - [ ] **Circadian Rhythms**: (`ILUMI_API_CMD_ENABLE_CIRCADIAN`) - Hardware-backed automatic color temperature adjustment slowly over the course of a day.
 
 ## Phase 7: Polish & UX Details
-- [x] **Hardware Fading/Transitions**: Implement `ILUMI_API_CMD_SET_COLOR_SMOOTH` as the default in `on.py`, `off.py`, `whites.py`, and `color.py`, adding a `--no-fade` opt-out flag. Update SDK discoverability.
+- [x] **Hardware Fading/Transitions**: Implement `ILUMI_API_CMD_SET_COLOR_SMOOTH` as the default in `on.py`, `off.py`, `whites.py`, and `color.py`, adding a `--no-fade` opt-out flag. Fixed fade granularity to ensure millisecond-level precision.
