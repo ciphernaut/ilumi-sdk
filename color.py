@@ -19,6 +19,11 @@ async def main():
     parser.add_argument("--group", type=str, help="Target a specific group")
     parser.add_argument("--all", action="store_true", help="Target all enrolled bulbs")
     parser.add_argument("--json", action="store_true", help="Output execution results strictly as JSON")
+    parser.add_argument("--fade", type=int, default=None, help="Fade duration in milliseconds (default: 500 for single/mesh, 0 for sequential)")
+    parser.add_argument("--no-fade", action="store_true", help="Disable fading (instant color change)")
+    parser.add_argument("--mesh", action="store_true", help="Use mesh routing via a single bulb connection")
+    parser.add_argument("--proxy", type=str, help="Specify proxy bulb by name or MAC")
+    parser.add_argument("--retries", type=int, default=3, help="Number of times to send mesh commands to ensure delivery (default: 3)")
     
     args = parser.parse_args()
     
@@ -30,18 +35,57 @@ async def main():
             print("No targets resolved. Please run enroll.py or check your arguments.")
         return
 
-    async def _set_color(sdk):
-        print(f"[{sdk.mac_address}] Setting color R:{args.r} G:{args.g} B:{args.b} W:{args.w} Bri:{args.brightness}...")
-        async with sdk:
-            await sdk.set_color(args.r, args.g, args.b, args.w, args.brightness)
-
-    if args.json:
-        with open(os.devnull, 'w') as f, redirect_stdout(f):
-            results = await execute_on_targets(targets, _set_color)
-        print(json.dumps({"command": "set_color", "targets": targets, "results": results}))
+    if args.proxy:
+        proxy_targets = config.resolve_targets(target_mac=args.proxy, target_name=args.proxy)
+        proxy_target = proxy_targets[0] if proxy_targets else targets[0]
     else:
-        await execute_on_targets(targets, _set_color)
-        print("Done.")
+        proxy_target = targets[0]
+
+    if args.no_fade:
+        args.fade = 0
+    elif args.fade is None:
+        if args.mesh or len(targets) <= 1:
+            args.fade = 500
+        else:
+            args.fade = 0
+
+    async def _set_color(sdk):
+        if not args.json:
+            print(f"[{sdk.mac_address}] Setting color R:{args.r} G:{args.g} B:{args.b} W:{args.w} Bri:{args.brightness} (Fade: {args.fade}ms)...")
+        async with sdk:
+            if args.fade > 0:
+                await sdk.set_color_smooth(args.r, args.g, args.b, args.w, args.brightness, duration_ms=args.fade)
+            else:
+                await sdk.set_color(args.r, args.g, args.b, args.w, args.brightness)
+
+    async def _mesh_set_color(sdk):
+        if not args.json:
+            print(f"[{sdk.mac_address}] Sending mesh proxy color change to {len(targets)} targets (Fade: {args.fade}ms, Retries: {args.retries})...")
+        async with sdk:
+            for i in range(args.retries):
+                if args.fade > 0:
+                    await sdk.set_color_smooth(args.r, args.g, args.b, args.w, args.brightness, duration_ms=args.fade, targets=targets)
+                else:
+                    await sdk.set_color(args.r, args.g, args.b, args.w, args.brightness, targets=targets)
+                if i < args.retries - 1:
+                    await asyncio.sleep(0.3)
+
+    if args.mesh:
+        if args.json:
+            with open(os.devnull, 'w') as f, redirect_stdout(f):
+                results = await execute_on_targets([proxy_target], _mesh_set_color)
+            print(json.dumps({"command": "set_color", "targets": targets, "mesh": True, "fade_ms": args.fade, "results": results}))
+        else:
+            await execute_on_targets([proxy_target], _mesh_set_color)
+            print("Done.")
+    else:
+        if args.json:
+            with open(os.devnull, 'w') as f, redirect_stdout(f):
+                results = await execute_on_targets(targets, _set_color)
+            print(json.dumps({"command": "set_color", "targets": targets, "mesh": False, "fade_ms": args.fade, "results": results}))
+        else:
+            await execute_on_targets(targets, _set_color)
+            print("Done.")
 
 if __name__ == "__main__":
     asyncio.run(main())

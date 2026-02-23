@@ -33,6 +33,10 @@ Every control script supports the following routing arguments:
 * `--group [GROUP]` (e.g. `--group lounge`)
 * `--all` (Targets every enrolled bulb)
 * `--mac [MAC_ADDRESS]` (Direct targeting)
+* `--fade [MS]` (Smooth transition time in milliseconds. Default: `500` for color/whites, `1000` for on/off. Note: When addressing multiple bulbs *without* `--mesh`, this defaults to `0` to prevent delayed sequential fading.)
+* `--no-fade` (Force instant transition)
+* `--mesh` (Experimental: Broadcast command via Bluetooth Mesh proxy for synchronized updates. Note: Mesh messaging can be unreliable.)
+* `--retries [N]` (Number of times to resend the mesh packet for reliability. Default: `3`)
 
 - **Turn On / Off:**
   ```bash

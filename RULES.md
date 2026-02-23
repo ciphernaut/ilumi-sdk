@@ -24,3 +24,13 @@ When assisting users with the Ilumi Python SDK, you **MUST** adhere to the follo
   python3 color.py 0 255 0 --name kitchen --json
   # Will cleanly output {"command": "set_color", "targets": ["FD:66:EE:..."], "results": {"FD:66:EE:...": {"success": true, "error": null}}}
   ```
+
+## 4. Hardware Fading
+- `color.py`, `whites.py`, `on.py`, and `off.py` utilize the bulb's native hardware fading API (`set_color_smooth`) for premium transitions.
+- **Fading defaults:** Fading is enabled by default (e.g., 500ms) **only** when targeting a single bulb or when using the `--mesh` flag. If targeting multiple bulbs sequentially (without `--mesh`), fading defaults to `0ms` (instant) to prevent uncoordinated "popcorning" delays.
+- If you need to snap a bulb to a specific color instantly, append `--no-fade` to force the `0ms` override.
+
+## 5. Mesh Proxy Routing (Experimental)
+- The `--mesh` flag can be used to route commands for an entire `--group` or `--all` bulbs through a single connected bulb, which broadcasts the color packet to the rest of the targets simultaneously over the Bluetooth Mesh.
+- **IMPORTANT:** Mesh proxy routing is currently broken/unreliable. Do **not** use `--mesh` by default when executing commands on multiple bulbs unless the user explicitly requests it.
+- When explicitly used, the `--mesh` flag prevents sequence delays ("popcorning"). Because mesh broadcasts can be unreliable natively, scripts use a `--retries` argument (default: 3) to automatically re-transmit the proxy command a few times.

@@ -61,11 +61,11 @@ async def main():
                     await sdk.set_color_fast(0, 0, 0, 0, 0)
                     continue
                     
-                group = input(f"Enter a group for this bulb (e.g. 'lounge') [Leave blank for none]: ").strip()
+                groups_input = input(f"Enter group(s) for this bulb (comma separated, e.g. 'lounge, test') [Leave blank for none]: ").strip()
                 
                 print(f"Setting up bulb '{name}'...")
                 # Save config and get the new generated node_id
-                node_id = config.add_bulb(mac, name, group)
+                node_id = config.add_bulb(mac, name, groups_input)
                 
                 # Commission the bulb into our network mesh
                 success = await sdk.commission(network_key, 1, node_id)

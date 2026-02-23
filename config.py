@@ -35,7 +35,7 @@ def get_all_bulbs():
     """Returns the dictionary of all enrolled bulbs mapped by MAC address."""
     return get_config("bulbs", {})
 
-def add_bulb(mac, name, group, node_id=None):
+def add_bulb(mac, name, groups_input, node_id=None):
     """Adds or updates a bulb in the configuration."""
     config = load_config()
     if "bulbs" not in config:
@@ -46,9 +46,17 @@ def add_bulb(mac, name, group, node_id=None):
         existing_nodes = [b.get("node_id", 0) for b in config["bulbs"].values()]
         node_id = max(existing_nodes) + 1 if existing_nodes else 1
 
+    # Convert group string "lounge, test" to list ["lounge", "test"]
+    if isinstance(groups_input, str):
+        groups = [g.strip() for g in groups_input.split(",") if g.strip()]
+    elif isinstance(groups_input, list):
+        groups = groups_input
+    else:
+        groups = []
+
     config["bulbs"][mac] = {
         "name": name,
-        "group": group,
+        "groups": groups,
         "node_id": node_id
     }
     save_config(config)
@@ -67,7 +75,19 @@ def get_bulbs_in_group(group):
     """Returns a dictionary of {mac: bulb_data} for bulbs matching the group."""
     if not group: return {}
     bulbs = get_all_bulbs()
-    return {mac: data for mac, data in bulbs.items() if data.get("group", "").lower() == group.lower()}
+    matched = {}
+    for mac, data in bulbs.items():
+        # Handle legacy "group" string
+        legacy_group = data.get("group", "")
+        if legacy_group and legacy_group.lower() == group.lower():
+            matched[mac] = data
+            continue
+        # Handle new "groups" array
+        groups = data.get("groups", [])
+        if any(g.lower() == group.lower() for g in groups):
+            matched[mac] = data
+            
+    return matched
 
 def resolve_targets(target_mac=None, target_name=None, target_group=None, target_all=False):
     """
