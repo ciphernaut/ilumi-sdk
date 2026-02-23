@@ -9,6 +9,7 @@ async def main():
     parser.add_argument("--name", type=str, help="Target a specific bulb by name")
     parser.add_argument("--group", type=str, help="Target a specific group")
     parser.add_argument("--all", action="store_true", help="CAUTION: Factory reset ALL enrolled bulbs")
+    parser.add_argument("--force", action="store_true", help="Force factory reset without confirmation")
     
     args = parser.parse_args()
     
@@ -17,11 +18,12 @@ async def main():
         print("No targets resolved. Please check your arguments.")
         return
 
-    print(f"WARNING: You are about to factory reset {len(targets)} bulb(s).")
-    confirm = input("Are you sure you want to proceed? (y/N): ").strip().lower()
-    if confirm != 'y':
-        print("Aborted.")
-        return
+    if not args.force:
+        print(f"WARNING: You are about to factory reset {len(targets)} bulb(s).")
+        confirm = input("Are you sure you want to proceed? (y/N): ").strip().lower()
+        if confirm != 'y':
+            print("Aborted.")
+            return
 
     async def _unenroll(sdk):
         print(f"[{sdk.mac_address}] Sending factory reset commissioning command...")

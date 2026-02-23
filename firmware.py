@@ -109,8 +109,10 @@ def main():
             asyncio.run(check_version(mac))
     elif args.command == "dfu":
         if not args.force:
-            print("Confirmation required for DFU. Use --force to proceed.")
-            sys.exit(1)
+            confirm = input(f"WARNING: You are about to enter DFU mode for {len(targets)} bulb(s). Are you sure? (y/N): ").strip().lower()
+            if confirm != 'y':
+                print("Aborted.")
+                sys.exit(1)
         for mac in targets:
             asyncio.run(trigger_dfu(mac))
 

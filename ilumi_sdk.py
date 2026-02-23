@@ -186,25 +186,29 @@ class IlumiSDK:
         await self._send_command(cmd + payload)
 
     async def set_color(self, r, g, b, w=0, brightness=255):
+        clamp = lambda x: max(0, min(255, int(x)))
         cmd = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_SET_COLOR_NEED_RESP)
-        payload = struct.pack("<B B B B B B B", r, g, b, w, brightness, 0, 0)
+        payload = struct.pack("<B B B B B B B", clamp(r), clamp(g), clamp(b), clamp(w), clamp(brightness), 0, 0)
         await self._send_command(cmd + payload)
 
     async def set_color_fast(self, r, g, b, w=0, brightness=255):
+        clamp = lambda x: max(0, min(255, int(x)))
         cmd = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_SET_COLOR)
-        payload = struct.pack("<B B B B B B B", r, g, b, w, brightness, 0, 0)
+        payload = struct.pack("<B B B B B B B", clamp(r), clamp(g), clamp(b), clamp(w), clamp(brightness), 0, 0)
         await self._send_command_fast(cmd + payload)
 
     async def set_candle_mode(self, r, g, b, w=0, brightness=255):
+        clamp = lambda x: max(0, min(255, int(x)))
         cmd = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_SET_CANDL_MODE)
-        payload = struct.pack("<B B B B B B B", r, g, b, w, brightness, 0, 0)
+        payload = struct.pack("<B B B B B B B", clamp(r), clamp(g), clamp(b), clamp(w), clamp(brightness), 0, 0)
         await self._send_command(cmd + payload)
 
     async def set_color_pattern(self, scene_idx, frames, repeatable=1, start_now=1):
+        clamp = lambda x: max(0, min(255, int(x)))
         cmd = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_SET_COLOR_PATTERN)
         frame_bytes = bytearray()
         for f in frames:
-            color = struct.pack("<B B B B B B", f.get('r', 0), f.get('g', 0), f.get('b', 0), f.get('w', 0), f.get('brightness', 255), 0)
+            color = struct.pack("<B B B B B B", clamp(f.get('r', 0)), clamp(f.get('g', 0)), clamp(f.get('b', 0)), clamp(f.get('w', 0)), clamp(f.get('brightness', 255)), 0)
             timings = struct.pack("<I I B B B B", f.get('sustain_ms', 500), f.get('transit_ms', 100), 0, 0, 0, 0)
             frame_bytes.extend(color + timings)
 

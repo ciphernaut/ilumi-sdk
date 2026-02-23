@@ -7,17 +7,18 @@ from ilumi_sdk import IlumiSDK
 ARTNET_PORT = 6454
 
 class ArtNetProtocol(asyncio.DatagramProtocol):
-    def __init__(self, targets, universe, start_channel):
+    def __init__(self, targets, universe, start_channel, bind_ip="127.0.0.1"):
         self.sdks = [IlumiSDK(mac) for mac in targets]
         self.universe = universe
         self.start_channel = start_channel - 1  # DMX channels are 1-512, arrays are 0-511
+        self.bind_ip = bind_ip
         
         # State cache to prevent sending duplicate packets to the bulb
         self.r, self.g, self.b, self.w = 0, 0, 0, 0
 
     def connection_made(self, transport):
         self.transport = transport
-        print(f"Listening for Art-Net DMX on UDP 0.0.0.0:{ARTNET_PORT}")
+        print(f"Listening for Art-Net DMX on UDP {self.bind_ip}:{ARTNET_PORT}")
         print(f"Targeting Universe {self.universe}, Channels {self.start_channel+1}-{self.start_channel+4} (RGBW)")
         print(f"Outputting to {len(self.sdks)} bulb(s)")
 
@@ -48,9 +49,9 @@ class ArtNetProtocol(asyncio.DatagramProtocol):
                 for sdk in self.sdks:
                     asyncio.create_task(sdk.set_color_fast(r, g, b, w, 255))
 
-async def main(targets, universe, channel):
+async def main(targets, universe, channel, bind_ip):
     print(f"Initializing Bluetooth Connection to {len(targets)} bulb(s)...")
-    protocol_instance = ArtNetProtocol(targets, universe, channel)
+    protocol_instance = ArtNetProtocol(targets, universe, channel, bind_ip)
     
     for sdk in protocol_instance.sdks:
         await sdk.__aenter__()
@@ -59,7 +60,7 @@ async def main(targets, universe, channel):
         loop = asyncio.get_running_loop()
         transport, protocol = await loop.create_datagram_endpoint(
             lambda: protocol_instance,
-            local_addr=('0.0.0.0', ARTNET_PORT)
+            local_addr=(bind_ip, ARTNET_PORT)
         )
         
         print("Server running. Press Ctrl+C to stop.")
@@ -86,6 +87,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Ilumi Art-Net DMX Streamer")
     parser.add_argument("--universe", type=int, default=0, help="Art-Net Universe (0-32767)")
     parser.add_argument("--channel", type=int, default=1, help="Start DMX channel (1-512) for RGBW")
+    parser.add_argument("--bind", type=str, default="127.0.0.1", help="IP address to bind to (e.g., 0.0.0.0 for all interfaces)")
     parser.add_argument("--mac", type=str, help="Target a specific MAC address")
     parser.add_argument("--name", type=str, help="Target a specific bulb by name")
     parser.add_argument("--group", type=str, help="Target a specific group")
@@ -98,6 +100,6 @@ if __name__ == "__main__":
         exit(1)
 
     try:
-        asyncio.run(main(targets, args.universe, args.channel))
+        asyncio.run(main(targets, args.universe, args.channel, args.bind))
     except KeyboardInterrupt:
         print("\nStopping...")
