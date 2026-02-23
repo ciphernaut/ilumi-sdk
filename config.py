@@ -15,6 +15,8 @@ def save_config(config):
         
     try:
         os.chmod(CONFIG_FILE, 0o660)
+    except PermissionError:
+        pass # Ignore if we don't own the file but can still write to it
     except Exception as e:
         print(f"Warning: Could not set strict permissions on {CONFIG_FILE}: {e}")
 
