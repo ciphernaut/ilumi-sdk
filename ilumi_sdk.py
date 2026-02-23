@@ -68,7 +68,7 @@ class IlumiSDK:
                         except Exception as e:
                             print(f"Failed to parse device info: {e}")
 
-            print(f"Notification from {sender}: {data.hex()}")
+            # print(f"Notification from {sender}: {data.hex()}")
         
         await self.client.start_notify(ILUMI_API_CHAR_UUID, notification_handler)
         return self
