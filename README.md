@@ -37,6 +37,7 @@ Every control script supports the following routing arguments:
 * `--no-fade` (Force instant transition)
 * `--mesh` (Experimental: Broadcast command via Bluetooth Mesh proxy for synchronized updates. Note: Mesh messaging can be unreliable.)
 * `--retries [N]` (Number of times to resend the mesh packet for reliability. Default: `3`)
+* `--proxy [NAME_OR_MAC]` (Specify a proxy bulb by name or MAC address to route mesh commands through when using `--mesh`)
 
 - **Turn On / Off:**
   ```bash

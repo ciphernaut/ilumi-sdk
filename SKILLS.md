@@ -26,7 +26,7 @@ When the user asks for a lighting change, map their request to the topology abov
 - If they ask to turn off the "nanobot" area, you do not need to iterate over bulbs `one`, `two` and `three` individually.
 - The SDK inherently supports group targeting.
 
-Your command should strictly use the routing args: `--name`, `--group`, `--all`, or `--mac`.
+Your command should strictly use the routing args: `--name`, `--group`, `--all`, `--mac`, or `--proxy`.
 
 **Critical Efficiency Rule:** When acting on behalf of the user within an interactive Shell, you **MUST** use the `--json` output flag to conserve your token ingestion.
 

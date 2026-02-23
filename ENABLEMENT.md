@@ -41,8 +41,8 @@ Once these permissions are in place, the agent can perform the following autonom
 
 1. **Start `btmon` background capture:** `sudo btmon -w /tmp/capture.snoop > /dev/null 2>&1 &`
 2. **Execute Python scripts:** e.g., `python3 enroll.py` or `python3 on.py`
-3. **Capture visual result:** `ffmpeg -f video4linux2 -i /dev/video0 -vframes 1 snapshot.jpg -y`
-4. **Analyze visual result:** The agent views the `snapshot.jpg` using multi-modal tools to confirm if the bulb is successfully outputting the commanded light.
+3. **Capture visual result:** `ffmpeg -f video4linux2 -i /dev/video0 -vframes 1 tests/snapshot.jpg -y`
+4. **Analyze visual result:** The agent views the `tests/snapshot.jpg` using multi-modal tools to confirm if the bulb is successfully outputting the commanded light.
 5. **Analyze network trace:** If the visual check fails, the agent kills `btmon` and reads the captured raw packet bytes to determine why the bulb rejected the payload.
 
 ---

@@ -34,3 +34,6 @@ When assisting users with the Ilumi Python SDK, you **MUST** adhere to the follo
 - The `--mesh` flag can be used to route commands for an entire `--group` or `--all` bulbs through a single connected bulb, which broadcasts the color packet to the rest of the targets simultaneously over the Bluetooth Mesh.
 - **IMPORTANT:** Mesh proxy routing is currently broken/unreliable. Do **not** use `--mesh` by default when executing commands on multiple bulbs unless the user explicitly requests it.
 - When explicitly used, the `--mesh` flag prevents sequence delays ("popcorning"). Because mesh broadcasts can be unreliable natively, scripts use a `--retries` argument (default: 3) to automatically re-transmit the proxy command a few times.
+
+## 6. Project Artifacts and Transients
+- **Test Scripts & Captures:** All test scripts (`test_*.py`), diagnostics, image captures (`.jpg`), and runtime trace logs (`.snoop`, `.log`) **MUST** be stored in the `tests/` directory to prevent cluttering the project root.
