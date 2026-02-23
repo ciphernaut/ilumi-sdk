@@ -9,18 +9,35 @@ ILUMI_API_CHAR_UUID = "f000f0c1-0451-4000-b000-000000000000"
 
 class IlumiApiCmdType:
     ILUMI_API_CMD_SET_COLOR = 0
+    ILUMI_API_CMD_SET_DEAULT_COLOR = 1
     ILUMI_API_CMD_TURN_ON = 4
     ILUMI_API_CMD_TURN_OFF = 5
+    ILUMI_API_CMD_SET_COLOR_PATTERN = 11  # CHECKED: line 12-1 is line 11? No, line 12 is index 7. Wait.
+    # Re-evaluating indices based on line number in IlumiApiCmdType.java:
+    # 5: 0
+    # 12: 7 (PATTERN)
+    # 13: 8 (START_PATTERN)
+    # 33: 28 (PROXY_MSG)
+    # 40: 35 (CANDLE)
+    # 42: 37 (SMOOTH)
+    # 45: 40 (DEVICE_INFO)
+    # 57: 52 (DATA_CHUNK)
+    # 63: 58 (COMMISSION)
+    # 73: 68 (TREE_MESH_PROXY)
+    
     ILUMI_API_CMD_SET_COLOR_PATTERN = 7
-    ILUMI_API_CMD_START_COLOR_PATTERN = 8
-    ILUMI_API_CMD_ADD_ACTION = 50
-    ILUMI_API_CMD_DATA_CHUNK = 52
-    ILUMI_API_CMD_SET_COLOR_NEED_RESP = 54
+    ILUMI_API_CMD_SET_DAILY_ALARM = 9
+    ILUMI_API_GET_BULB_COLOR = 16
     ILUMI_API_CMD_SET_CANDL_MODE = 35
-    ILUMI_API_CMD_COMMISSION_WITH_ID = 58
+    ILUMI_API_CMD_SET_COLOR_SMOOTH = 37
     ILUMI_API_CMD_GET_DEVICE_INFO = 40
+    ILUMI_API_CMD_PROXY_MSG = 28
+    ILUMI_API_CMD_TREE_MESH_PROXY = 68
+    ILUMI_API_CMD_DATA_CHUNK = 52
+    ILUMI_API_CMD_COMMISSION_WITH_ID = 58
+    ILUMI_API_CMD_ADD_ACTION = 50
+    ILUMI_API_CMD_SET_COLOR_NEED_RESP = 54
     ILUMI_API_CMD_CONFIG = 65
-    ILUMI_API_CMD_SET_COLOR_SMOOTH = 42
 
 class IlumiConfigCmdType:
     ILUMI_CONFIG_ENTER_BOOTLOADER = 2
@@ -45,18 +62,32 @@ class IlumiSDK:
         await self.client.connect()
         
         def notification_handler(sender, data):
-            # Response Header is 4 bytes: [0: cmd, 1: status, 2:4: payload_size (LE)]
-            if len(data) >= 4:
+            if len(data) >= 2:
                 cmd_type = data[0]
-                status = data[1]
-                payload_size = struct.unpack("<H", data[2:4])[0]
-                payload = data[4:]
                 
-                if cmd_type == IlumiApiCmdType.ILUMI_API_CMD_GET_DEVICE_INFO:
-                    if len(payload) >= 10:
+                if cmd_type == IlumiApiCmdType.ILUMI_API_CMD_PROXY_MSG:
+                    if len(data) >= 10:
+                        inner_len = struct.unpack("<H", data[8:10])[0]
+                        if inner_len > 0:
+                            inner_payload = data[10:10+inner_len]
+                            inner_type = inner_payload[0]
+                            if inner_type == IlumiApiCmdType.ILUMI_API_GET_BULB_COLOR:
+                                if len(inner_payload) >= 6:
+                                    # R, G, B, W, Bri (after type byte)
+                                    self._last_color = {
+                                        "r": inner_payload[1],
+                                        "g": inner_payload[2],
+                                        "b": inner_payload[3],
+                                        "w": inner_payload[4],
+                                        "brightness": inner_payload[5]
+                                    }
+                                    self._color_event.set()
+                
+                elif cmd_type == IlumiApiCmdType.ILUMI_API_CMD_GET_DEVICE_INFO:
+                    if len(data) >= 14: # 4 header + 10 data
                         try:
-                            # <H H B B H H: firmware, bootloader, commission, model, reset, ble_stack
-                            unpacked = struct.unpack("<H H B B H H", payload[:10])
+                            # Payload starts at data[4]
+                            unpacked = struct.unpack("<H H B B H H", data[4:14])
                             self._last_device_info = {
                                 "firmware_version": unpacked[0],
                                 "bootloader_version": unpacked[1],
@@ -68,6 +99,17 @@ class IlumiSDK:
                             self._device_info_event.set()
                         except Exception as e:
                             print(f"Failed to parse device info: {e}")
+                
+                elif cmd_type == IlumiApiCmdType.ILUMI_API_GET_BULB_COLOR:
+                    if len(data) >= 9: # 4 header + 5 data
+                        self._last_color = {
+                            "r": data[4],
+                            "g": data[5],
+                            "b": data[6],
+                            "w": data[7],
+                            "brightness": data[8]
+                        }
+                        self._color_event.set()
 
             # print(f"Notification from {sender}: {data.hex()}")
         
@@ -85,16 +127,20 @@ class IlumiSDK:
                 print(f"Error during disconnect: {e}")
             self.client = None
 
-    def _pack_header(self, cmd_type):
-        """
-        Packs the 6-byte GATT header:
-        - 4-byte network key (LE) [0:4]
-        - 1-byte seq_num [4]
-        - 1-byte cmd type [5]
-        """
-        header = struct.pack("<I B B", self.network_key, self.seq_num, cmd_type)
-        self.seq_num = (self.seq_num + 2) & 0xFE
+    def _pack_header(self, message_type):
+        """Common Ilumi SDK header: 4-byte network_key, 1-byte seq_num, 1-byte message type."""
+        network_id_bytes = struct.pack("<I", self.network_key)
+        
+        # Ensure seq_num is even and wrap at 256
+        if self.seq_num % 2 != 0:
+            self.seq_num = (self.seq_num + 1) % 256
+            
+        header = network_id_bytes + struct.pack("B B", self.seq_num, message_type)
+        
+        # Increment seq_num for next command
+        self.seq_num = (self.seq_num + 2) % 256
         config.update_config("seq_num", self.seq_num)
+        
         return header
 
     async def _send_command(self, payload):
@@ -161,20 +207,26 @@ class IlumiSDK:
 
     async def send_proxy_message(self, target_macs, inner_payload):
         """Routes an inner API payload to a list of target MAC addresses via the mesh."""
-        service_type_ttl = 15 # Default routing TTL
-        addr_amount = len(target_macs)
-        proxy_data_len = (addr_amount * 6) + len(inner_payload)
-        
-        proxy_cmd = self._pack_header(33) # ILUMI_API_CMD_PROXY_MSG
-        proxy_header = struct.pack("<B B H", service_type_ttl, addr_amount, proxy_data_len)
-        
-        mac_bytes = bytearray()
-        for mac in target_macs:
-            mac_parts = [int(x, 16) for x in mac.split(':')]
-            mac_bytes.extend(bytes(mac_parts))
+        for target_mac in target_macs:
+            mac_parts = [int(x, 16) for x in target_mac.split(':')]
+            mac_parts.reverse() # Little-endian order for BLE
+            mac_bytes = bytes(mac_parts)
             
-        final_payload = proxy_cmd + proxy_header + mac_bytes + inner_payload
-        await self._send_chunked_command(final_payload)
+            # Use standard PROXY format (28) - more reliable than tree mesh
+            # Use TTL 47 for short payloads as seen in apiProxyByMAC
+            service_type_ttl = 47 if len(inner_payload) <= 17 else 15
+            addr_amount = 1
+            # proxy_data_len = (addr_amount * 6) + len(inner_payload)
+            proxy_data_len = 6 + len(inner_payload)
+            
+            proxy_cmd = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_PROXY_MSG)
+            proxy_header = struct.pack("<B B H", service_type_ttl, addr_amount, proxy_data_len)
+            
+            # Combine: [Outer Header (6)] + [Proxy Header (4)] + [MAC (6)] + [Inner Payload]
+            final_payload = proxy_cmd + proxy_header + mac_bytes + inner_payload
+                
+            await self._send_chunked_command(final_payload)
+            await asyncio.sleep(0.1) # Small delay between proxy commands
     async def commission(self, new_network_key, group_id, node_id):
         self.network_key = new_network_key
         cmd = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_COMMISSION_WITH_ID)
@@ -273,6 +325,23 @@ class IlumiSDK:
         cmd = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_START_COLOR_PATTERN)
         payload = struct.pack("<B", scene_idx)
         await self._send_command(cmd + payload)
+
+    async def get_bulb_color(self, targets=None):
+        self._last_color = None
+        self._color_event = asyncio.Event()
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_GET_BULB_COLOR)
+        
+        if targets:
+            await self.send_proxy_message(targets, header)
+        else:
+            await self._send_command(header)
+        
+        try:
+            await asyncio.wait_for(self._color_event.wait(), timeout=5.0)
+            return self._last_color
+        except asyncio.TimeoutError:
+            print("Timeout waiting for color status.")
+            return None
 
     async def get_device_info(self):
         """Triggers and waits for a GET_DEVICE_INFO response."""
