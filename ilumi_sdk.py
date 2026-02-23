@@ -20,6 +20,7 @@ class IlumiApiCmdType:
     ILUMI_API_CMD_COMMISSION_WITH_ID = 58
     ILUMI_API_CMD_GET_DEVICE_INFO = 40
     ILUMI_API_CMD_CONFIG = 65
+    ILUMI_API_CMD_SET_COLOR_SMOOTH = 42
 
 class IlumiConfigCmdType:
     ILUMI_CONFIG_ENTER_BOOTLOADER = 2
@@ -189,6 +190,40 @@ class IlumiSDK:
         clamp = lambda x: max(0, min(255, int(x)))
         cmd = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_SET_COLOR_NEED_RESP)
         payload = struct.pack("<B B B B B B B", clamp(r), clamp(g), clamp(b), clamp(w), clamp(brightness), 0, 0)
+        await self._send_command(cmd + payload)
+
+    async def set_color_smooth(self, r, g, b, w=0, brightness=255, duration_ms=500, delay_sec=0):
+        clamp = lambda x: max(0, min(255, int(x)))
+        cmd = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_SET_COLOR_SMOOTH)
+        
+        # Determine whether to use milliseconds or seconds. Max ms interval is ~65s.
+        if duration_ms < 65535:
+            time_val = int(duration_ms)
+            time_unit = 0  # TIME_UNIT_MILLISECOND
+        else:
+            time_val = int(duration_ms / 1000)
+            time_unit = 1  # TIME_UNIT_SECOND
+            
+        payload = struct.pack("<B B B B B B H B B", 
+                              clamp(r), clamp(g), clamp(b), clamp(w), clamp(brightness), 0,
+                              time_val, time_unit, clamp(delay_sec))
+        await self._send_command(cmd + payload)
+
+    async def set_color_smooth(self, r, g, b, w=0, brightness=255, duration_ms=500, delay_sec=0):
+        clamp = lambda x: max(0, min(255, int(x)))
+        cmd = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_SET_COLOR_SMOOTH)
+        
+        # Determine whether to use milliseconds or seconds. Max ms interval is ~65s.
+        if duration_ms < 65535:
+            time_val = int(duration_ms)
+            time_unit = 0  # TIME_UNIT_MILLISECOND
+        else:
+            time_val = int(duration_ms / 1000)
+            time_unit = 1  # TIME_UNIT_SECOND
+            
+        payload = struct.pack("<B B B B B B H B B", 
+                              clamp(r), clamp(g), clamp(b), clamp(w), clamp(brightness), 0,
+                              time_val, time_unit, clamp(delay_sec))
         await self._send_command(cmd + payload)
 
     async def set_color_fast(self, r, g, b, w=0, brightness=255):

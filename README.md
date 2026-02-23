@@ -33,6 +33,8 @@ Every control script supports the following routing arguments:
 * `--group [GROUP]` (e.g. `--group lounge`)
 * `--all` (Targets every enrolled bulb)
 * `--mac [MAC_ADDRESS]` (Direct targeting)
+* `--fade [MS]` (Smooth transition time in milliseconds. Default: `500` for color/whites, `1000` for on/off)
+* `--no-fade` (Force instant transition)
 
 - **Turn On / Off:**
   ```bash

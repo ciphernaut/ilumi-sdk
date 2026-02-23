@@ -37,8 +37,13 @@ async def main():
     parser.add_argument("--group", type=str, help="Target a specific group")
     parser.add_argument("--all", action="store_true", help="Target all enrolled bulbs")
     parser.add_argument("--json", action="store_true", help="Output execution results strictly as JSON")
+    parser.add_argument("--fade", type=int, default=500, help="Fade duration in milliseconds (default: 500)")
+    parser.add_argument("--no-fade", action="store_true", help="Disable fading (instant color change)")
     
     args = parser.parse_args()
+
+    if args.no_fade:
+        args.fade = 0
 
     if not args.profile:
         print(json.dumps(list(PROFILES.keys())))
@@ -65,17 +70,21 @@ async def main():
         return
 
     async def _set_profile(sdk):
-        print(f"[{sdk.mac_address}] Setting profile '{profile_name}'...")
+        if not args.json:
+            print(f"[{sdk.mac_address}] Setting profile '{profile_name}' (Fade: {args.fade}ms)...")
         async with sdk:
             if profile_name in ["candle_light", "core_breach"]:
                 await sdk.set_candle_mode(r, g, b, w, args.brightness)
             else:
-                await sdk.set_color(r, g, b, w, args.brightness)
+                if args.fade > 0:
+                    await sdk.set_color_smooth(r, g, b, w, args.brightness, duration_ms=args.fade)
+                else:
+                    await sdk.set_color(r, g, b, w, args.brightness)
 
     if args.json:
         with open(os.devnull, 'w') as f, redirect_stdout(f):
             results = await execute_on_targets(targets, _set_profile)
-        print(json.dumps({"command": "set_white_profile", "profile": profile_name, "targets": targets, "results": results}))
+        print(json.dumps({"command": "set_white_profile", "profile": profile_name, "targets": targets, "fade_ms": args.fade, "results": results}))
     else:
         await execute_on_targets(targets, _set_profile)
         print("Done.")

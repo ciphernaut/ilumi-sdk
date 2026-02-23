@@ -24,3 +24,7 @@ When assisting users with the Ilumi Python SDK, you **MUST** adhere to the follo
   python3 color.py 0 255 0 --name kitchen --json
   # Will cleanly output {"command": "set_color", "targets": ["FD:66:EE:..."], "results": {"FD:66:EE:...": {"success": true, "error": null}}}
   ```
+
+## 4. Hardware Fading
+- By default, `color.py`, `whites.py`, `on.py`, and `off.py` utilize the bulb's native hardware fading API (`set_color_smooth`) for premium transitions.
+- If you need to snap a bulb to a specific color instantly, or you are rapidly updating the bulb's color via successive calls, append `--no-fade` to bypass the hardware transition delay.

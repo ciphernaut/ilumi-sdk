@@ -19,9 +19,13 @@ async def main():
     parser.add_argument("--group", type=str, help="Target a specific group")
     parser.add_argument("--all", action="store_true", help="Target all enrolled bulbs")
     parser.add_argument("--json", action="store_true", help="Output execution results strictly as JSON")
+    parser.add_argument("--fade", type=int, default=500, help="Fade duration in milliseconds (default: 500)")
+    parser.add_argument("--no-fade", action="store_true", help="Disable fading (instant color change)")
     
     args = parser.parse_args()
     
+    if args.no_fade:
+        args.fade = 0
     targets = config.resolve_targets(args.mac, args.name, args.group, args.all)
     if not targets:
         if args.json:
@@ -31,14 +35,18 @@ async def main():
         return
 
     async def _set_color(sdk):
-        print(f"[{sdk.mac_address}] Setting color R:{args.r} G:{args.g} B:{args.b} W:{args.w} Bri:{args.brightness}...")
+        if not args.json:
+            print(f"[{sdk.mac_address}] Setting color R:{args.r} G:{args.g} B:{args.b} W:{args.w} Bri:{args.brightness} (Fade: {args.fade}ms)...")
         async with sdk:
-            await sdk.set_color(args.r, args.g, args.b, args.w, args.brightness)
+            if args.fade > 0:
+                await sdk.set_color_smooth(args.r, args.g, args.b, args.w, args.brightness, duration_ms=args.fade)
+            else:
+                await sdk.set_color(args.r, args.g, args.b, args.w, args.brightness)
 
     if args.json:
         with open(os.devnull, 'w') as f, redirect_stdout(f):
             results = await execute_on_targets(targets, _set_color)
-        print(json.dumps({"command": "set_color", "targets": targets, "results": results}))
+        print(json.dumps({"command": "set_color", "targets": targets, "fade_ms": args.fade, "results": results}))
     else:
         await execute_on_targets(targets, _set_color)
         print("Done.")
