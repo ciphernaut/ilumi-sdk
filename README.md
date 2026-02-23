@@ -108,3 +108,10 @@ If animations don't play:
 
 ## Permissions & Debugging
 Refer to `ENABLEMENT.md` for Bluetooth permission setup and HCI snoop log gathering instructions. For protocol captures, you can uncomment the "observing mode" loop in `effects.py` to keep the connection alive.
+
+## License & Disclaimer
+
+This project is open-source and licensed under the [MIT License](LICENSE).
+
+**⚠️ EXTREME LIABILITY DISCLAIMER ⚠️**
+By using this software, you explicitly agree that the authors are completely free from any and all liability. You waive any rights to claim damages if your bulbs explode, melt, catch fire, burn your house down, or trigger any other apocalyptic scenarios. You are directly communicating with Bluetooth hardware through heavily reverse-engineered protocols natively without the manufacturer's safety nets—**use at your own risk.**
