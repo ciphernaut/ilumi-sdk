@@ -33,4 +33,5 @@ ilumi_config.json
 capture/
 tests/
 mesh_map.svg
+mesh_map.html
 mesh_data.json

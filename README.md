@@ -110,6 +110,32 @@ Control the bulb natively using professional lighting consoles and VJ software (
   python3 artnet_stream.py --universe 0 --channel 1 --group stage
   ```
 
+## Mesh Diagnostics & Optimization
+
+The SDK now includes tools to visualize your Bluetooth Mesh topology and optimize command routing.
+
+### 1. Mesh Topology Mapping
+Automatically crawl your entire network and generate high-fidelity visualizations.
+- **Crawl & Cache**:
+  ```bash
+  python3 mesh_mapper.py --save mesh_data.json
+  ```
+- **Interactive Backbone Explorer**:
+  Generates a "Premium" interactive map with a highlighted communication backbone (MST).
+  ```bash
+  python3 pyvis_mapper.py --load mesh_data.json
+  ```
+  *This produces `mesh_map.html` which you can open in any browser.*
+
+### 2. Identifying the Best Proxy
+Wait... which bulb is best for `--proxy`? 
+- **The "Hub" Strategy**: In the interactive map, look for nodes with the most **thick glowing lines**. These are your central hubs.
+- **The "Green Zone" Strategy**: Look for bulbs with the highest number of **Green (-30 to -65 dBm)** links in the matrix.
+- **Proximity**: Choose the hub bulb that is physically closest to your gateway for the fastest initial hop.
+
+> [!TIP]
+> Use `python3 pyvis_mapper.py --load mesh_data.json` to instantly regenerate the map after renaming bulbs in `ilumi_config.json` without needing to re-scan the mesh!
+
 ## Troubleshooting
 If animations don't play:
 1.  **Protocol Fix**: Ensure `IlumiApiCmdType.ILUMI_API_CMD_SET_COLOR_PATTERN` is set to `7` and `START_COLOR_PATTERN` is set to `8` in `ilumi_sdk.py`.
