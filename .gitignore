@@ -32,3 +32,5 @@ com.ilumibeta_apk/
 ilumi_config.json
 capture/
 tests/
+mesh_map.svg
+mesh_data.json
