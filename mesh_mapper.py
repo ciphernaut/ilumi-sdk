@@ -9,7 +9,6 @@ import json
 import os
 from typing import List, Dict, Any, Tuple
 from ilumi_sdk import IlumiSDK, ILUMI_SERVICE_UUID
-from bleak import BleakScanner
 import config
 
 # Physics parameters for force-directed layout
@@ -104,11 +103,11 @@ class MeshMapper:
     async def _resolve_names(self):
         """Try once to resolve names via scan."""
         try:
-            devices = await BleakScanner.discover(timeout=2.0)
-            for d in devices:
-                addr = d.address.upper()
+            discovered = await IlumiSDK.discover(timeout=2.0)
+            for d in discovered:
+                addr = d["address"].upper()
                 if addr not in self.name_map:
-                    self.name_map[addr] = d.name or "Unknown"
+                    self.name_map[addr] = d["name"] or "Unknown"
         except:
             pass
 
