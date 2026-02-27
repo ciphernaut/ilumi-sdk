@@ -305,10 +305,10 @@ class IlumiSDK:
         
         try:
             await self._send_command(cmd + payload)
-            logger.info("Commissioning payload sent successfully.")
-            config.update_config("network_key", new_network_key)
-            config.update_config("group_id", group_id)
-            config.update_config("node_id", node_id)
+            if new_network_key != 0:
+                config.update_config("network_key", new_network_key)
+                config.update_config("group_id", group_id)
+                config.update_config("node_id", node_id)
             return True
         except Exception as e:
             logger.error(f"Failed to commission: {e}")

@@ -430,9 +430,10 @@ class IlumiSDK:
         payload = struct.pack("<I H H", new_network_key, node_id, group_id)
         try:
             await self._send_command(cmd + payload)
-            config.update_config("network_key", new_network_key)
-            config.update_config("group_id", group_id)
-            config.update_config("node_id", node_id)
+            if new_network_key != 0:
+                config.update_config("network_key", new_network_key)
+                config.update_config("group_id", group_id)
+                config.update_config("node_id", node_id)
             return True
         except Exception as e:
             logger.error(f"Failed to commission: {e}")
