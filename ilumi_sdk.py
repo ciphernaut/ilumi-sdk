@@ -67,6 +67,7 @@ class IlumiSDK:
         self.seq_num = config.get_config("seq_num", 0)
         self.dfu_key = config.get_config("dfu_key", 0x12345678)
         self.client: Optional[BleakClient] = None
+        self._ble_device = None  # can be set to a BLEDevice to skip per-connect scan
         self._last_device_info: Optional[Dict[str, Any]] = None
         self._last_color: Optional[Dict[str, int]] = None
         self._device_info_event = asyncio.Event()
@@ -79,7 +80,8 @@ class IlumiSDK:
         if not self.mac_address:
             raise ValueError("No MAC address specified or enrolled.")
         
-        self.client = BleakClient(self.mac_address, timeout=10.0)
+        target = self._ble_device if self._ble_device is not None else self.mac_address
+        self.client = BleakClient(target, timeout=10.0)
         logger.info(f"Connecting to {self.mac_address}...")
         try:
             await self.client.connect()
