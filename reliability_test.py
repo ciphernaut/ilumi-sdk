@@ -4,23 +4,9 @@ import argparse
 import sys
 import statistics
 from typing import List, Dict, Any
-from bleak import BleakScanner
-from ilumi_sdk import IlumiSDK, ILUMI_SERVICE_UUID
-
 async def scan_bulbs(timeout: float = 5.0) -> List[Dict[str, Any]]:
     print(f"Scanning for Ilumi bulbs ({timeout}s)...")
-    devices = await BleakScanner.discover(timeout=timeout, return_adv=True)
-    
-    ilumi_devices = []
-    for mac, (device, adv_data) in devices.items():
-        uuids = [u.lower() for u in adv_data.service_uuids]
-        if ILUMI_SERVICE_UUID.lower() in uuids or (device.name and "ilumi" in device.name.lower()):
-            ilumi_devices.append({
-                "address": device.address,
-                "name": device.name or "Unknown",
-                "rssi": adv_data.rssi
-            })
-    
+    ilumi_devices = await IlumiSDK.discover(timeout=timeout)
     # Sort by RSSI (strongest first)
     ilumi_devices.sort(key=lambda x: x["rssi"], reverse=True)
     return ilumi_devices
