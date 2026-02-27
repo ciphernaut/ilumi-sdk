@@ -1,7 +1,6 @@
 import asyncio
 import numpy as np
 import sounddevice as sd
-from bleak import BleakScanner
 from ilumi_sdk import IlumiSDK
 import config
 import math
@@ -21,7 +20,6 @@ class AudioVisualizer:
     def __init__(self, targets):
         self.all_sdks = [IlumiSDK(mac) for mac in targets]
         self.sdks = []  # populated after successful connect
-        self._connect_sem = asyncio.Semaphore(2)  # BlueZ safe concurrency limit
         self.r = 0
         self.g = 0
         self.b = 0
@@ -65,13 +63,12 @@ class AudioVisualizer:
 
     async def _connect_sdk(self, sdk):
         """Try to connect a single SDK; return it on success, None on failure."""
-        async with self._connect_sem:
-            try:
-                await sdk.__aenter__()
-                return sdk
-            except Exception as e:
-                print(f"Warning: could not connect to {sdk.mac_address} – {e}. Skipping.")
-                return None
+        try:
+            await sdk.__aenter__()
+            return sdk
+        except Exception as e:
+            print(f"Warning: could not connect to {sdk.mac_address} – {e}. Skipping.")
+            return None
 
     async def _send_color(self, sdk, r, g, b):
         """Send a color command to one SDK, logging but not raising on failure."""
@@ -81,20 +78,8 @@ class AudioVisualizer:
             print(f"Warning: lost connection to {sdk.mac_address} – {e}. Skipping.")
 
     async def run(self, device=None):
-        print(f"Scanning for {len(self.all_sdks)} bulbs...")
-        target_macs = {sdk.mac_address.upper() for sdk in self.all_sdks}
-        discovered = {
-            d.address.upper(): d
-            for d in await BleakScanner.discover(timeout=5.0)
-            if d.address.upper() in target_macs
-        }
-
-        found = len(discovered)
         total = len(self.all_sdks)
-        print(f"Found {found}/{total} bulbs in scan. Connecting concurrently...")
-
-        for sdk in self.all_sdks:
-            sdk._ble_device = discovered.get(sdk.mac_address.upper())  # None = not found, will fail gracefully
+        print(f"Connecting to {total} bulbs concurrently...")
 
         results = await asyncio.gather(*(self._connect_sdk(sdk) for sdk in self.all_sdks))
         self.sdks = [sdk for sdk in results if sdk is not None]
