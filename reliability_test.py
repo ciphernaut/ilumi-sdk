@@ -4,6 +4,8 @@ import argparse
 import sys
 import statistics
 from typing import List, Dict, Any
+from ilumi_sdk import IlumiSDK
+
 async def scan_bulbs(timeout: float = 5.0) -> List[Dict[str, Any]]:
     print(f"Scanning for Ilumi bulbs ({timeout}s)...")
     ilumi_devices = await IlumiSDK.discover(timeout=timeout)
