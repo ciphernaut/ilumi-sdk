@@ -18,7 +18,8 @@ HIGH_MAX = 10000
 
 class AudioVisualizer:
     def __init__(self, targets):
-        self.sdks = [IlumiSDK(mac) for mac in targets]
+        self.all_sdks = [IlumiSDK(mac) for mac in targets]
+        self.sdks = []  # populated after successful connect
         self.r = 0
         self.g = 0
         self.b = 0
@@ -60,10 +61,35 @@ class AudioVisualizer:
         self.r = int(min(255, max(0, self.r_val * 255)))
         self.b = int(min(255, max(0, self.b_val * 255)))
 
-    async def run(self):
-        print(f"Initializing Bluetooth Connection to {len(self.sdks)} bulbs...")
-        for sdk in self.sdks:
+    async def _connect_sdk(self, sdk):
+        """Try to connect a single SDK; return it on success, None on failure."""
+        try:
             await sdk.__aenter__()
+            return sdk
+        except Exception as e:
+            print(f"Warning: could not connect to {sdk.mac_address} – {e}. Skipping.")
+            return None
+
+    async def _send_color(self, sdk, r, g, b):
+        """Send a color command to one SDK, logging but not raising on failure."""
+        try:
+            await sdk.set_color_fast(r, g, b, 0, 255)
+        except Exception as e:
+            print(f"Warning: lost connection to {sdk.mac_address} – {e}. Skipping.")
+
+    async def run(self):
+        print(f"Initializing Bluetooth Connection to {len(self.all_sdks)} bulbs...")
+        # Connect sequentially: BlueZ allows only one BLE scan at a time
+        for sdk in self.all_sdks:
+            result = await self._connect_sdk(sdk)
+            if result is not None:
+                self.sdks.append(result)
+
+        if not self.sdks:
+            print("No bulbs could be connected. Exiting.")
+            return
+
+        print(f"{len(self.sdks)}/{len(self.all_sdks)} bulbs connected.")
 
         try:
             print("Starting Audio Stream...")
@@ -80,7 +106,7 @@ class AudioVisualizer:
 
                 print("Listening... Press Ctrl+C to stop.")
                 while True:
-                    await asyncio.gather(*(sdk.set_color_fast(self.r, self.g, self.b, 0, 255) for sdk in self.sdks))
+                    await asyncio.gather(*(self._send_color(sdk, self.r, self.g, self.b) for sdk in self.sdks))
                     await asyncio.sleep(0.033) 
                         
         except asyncio.CancelledError:
@@ -89,10 +115,15 @@ class AudioVisualizer:
             print("\nStopping...")
         finally:
             print("Turning bulbs off...")
-            await asyncio.gather(*(sdk.set_color_fast(0, 0, 0, 0, 0) for sdk in self.sdks))
+            await asyncio.gather(*(self._send_color(sdk, 0, 0, 0) for sdk in self.sdks))
             await asyncio.sleep(0.5)
             for sdk in self.sdks:
-                await sdk.__aexit__(None, None, None)
+                try:
+                    await sdk.__aexit__(None, None, None)
+                except Exception:
+                    pass
+
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Ilumi Audio Visualizer")
