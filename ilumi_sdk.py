@@ -1,3 +1,16 @@
+import os as _os
+if _os.environ.get("ILUMI_USE_BUMBLE"):
+    from bumble_sdk import (  # noqa: F401
+        IlumiSDK, IlumiConnectionError, IlumiProtocolError,
+        IlumiApiCmdType, IlumiConfigCmdType,
+        ILUMI_SERVICE_UUID, ILUMI_API_CHAR_UUID,
+        execute_on_targets,
+    )
+    import sys as _sys
+    _sys.modules[__name__] = _sys.modules["bumble_sdk"]
+    # We don't raise SystemExit here so that the module remains available
+    # but redirects to the bumble version.
+
 import asyncio
 import struct
 import time
