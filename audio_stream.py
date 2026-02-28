@@ -6,6 +6,12 @@ import config
 import os
 import math
 import argparse
+import struct
+import sys
+import logging
+import json
+import signal
+from typing import List, Optional
 
 # Audio Config
 SAMPLE_RATE = 44100
@@ -46,6 +52,7 @@ class AudioVisualizer:
         # Concurrency control: BlueZ needs a limit, Bumble can handle many more
         limit = 100 if os.environ.get("ILUMI_USE_BUMBLE") == "1" else 2
         self._connect_sem = asyncio.Semaphore(limit)
+        self.stop_event = None # Will be set by run()
 
     def audio_callback(self, indata, frames, time, status):
         """Called by sounddevice for each block of audio."""
@@ -98,8 +105,12 @@ class AudioVisualizer:
                 await sdk.set_color_fast(r, g, b, 0, 255)
         except Exception as e:
             print(f"Warning: command failed for {sdk.mac_address} – {e}. Skipping.")
+            if sdk in self.sdks:
+                self.sdks.remove(sdk)
 
-    async def run(self, device=None):
+    async def run(self, device=None, stop_event: Optional[asyncio.Event] = None):
+        self.stop_event = stop_event if stop_event else asyncio.Event()
+
         total = len(self.all_sdks)
         print(f"Connecting to {total} bulbs concurrently...")
 
@@ -108,6 +119,7 @@ class AudioVisualizer:
 
         if not self.sdks:
             print("No bulbs could be connected. Exiting.")
+            self.stop_event.set() # Signal main loop to stop
             return
 
         print(f"{len(self.sdks)}/{total} bulbs connected.")
@@ -127,31 +139,48 @@ class AudioVisualizer:
                                 device=device):
 
                 print("Listening... Press Ctrl+C to stop.")
-                while True:
+                while not self.stop_event.is_set():
+                    # Check for disconnected SDKs and try to reconnect
+                    if not self.sdks:
+                        print("Disconnected. Attempting to reconnect...")
+                        await asyncio.sleep(2.0)
+                        results = await asyncio.gather(*(self._connect_sdk(sdk) for sdk in self.all_sdks))
+                        if not self.sdks:
+                            continue
+                        print(f"Reconnected: {len(self.sdks)}/{len(self.all_sdks)} bulbs active.")
+
+                    # Send colors to all active SDKs
                     await asyncio.gather(*(self._send_color(sdk, self.r, self.g, self.b) for sdk in self.sdks))
                     await asyncio.sleep(0.033) 
                         
         except asyncio.CancelledError:
-            pass
-        except KeyboardInterrupt:
-            print("\nStopping...")
+            print("Visualizer task cancelled.")
+        except Exception as e:
+            print(f"An error occurred during audio streaming: {e}")
         finally:
-            print("Turning bulbs off...")
-            await asyncio.gather(*(self._send_color(sdk, 0, 0, 0) for sdk in self.sdks))
-            await asyncio.sleep(0.5)
-            for sdk in self.sdks:
-                try:
-                    await sdk.__aexit__(None, None, None)
-                except Exception:
-                    pass
+            print("Visualizer run loop finished.")
+
+    async def stop(self):
+        """Turns off bulbs and cleans up SDK connections."""
+        print("Turning bulbs off...")
+        await asyncio.gather(*(self._send_color(sdk, 0, 0, 0) for sdk in self.sdks))
+        await asyncio.sleep(0.5)
+        for sdk in list(self.sdks): # Use list() to avoid mutation during iteration
+            try:
+                await sdk.__aexit__(None, None, None)
+            except Exception:
+                pass
+        self.sdks = []
             
         # Final cleanup for Bumble transport
-        try:
-            from bumble_sdk import shutdown_bumble
-            await shutdown_bumble()
-        except ImportError:
-            pass
-
+        if os.environ.get('ILUMI_USE_BUMBLE') == '1':
+            try:
+                from bumble_sdk import shutdown_bumble
+                await shutdown_bumble()
+            except ImportError:
+                pass
+            except Exception as e:
+                print(f"Error during Bumble shutdown: {e}")
 
 
 if __name__ == "__main__":
@@ -172,10 +201,22 @@ if __name__ == "__main__":
         print(sd.query_devices())
         exit(0)
 
-    targets = config.resolve_targets(args.mac, args.name, args.group, args.all)
+    # Mutual exclusivity for targeting
+    if args.all:
+        targets = config.get_all_bulbs()
+    elif args.group:
+        targets = config.resolve_targets(target_group=args.group)
+    elif args.name:
+        targets = config.resolve_targets(target_name=args.name)
+    elif args.mac:
+        targets = [args.mac]
+    else:
+        print("No target specified. Use --all, --group, --name, or --mac.")
+        sys.exit(1)
+        
     if not targets:
-        print("No targets resolved. Please run enroll.py or check your arguments.")
-        exit(1)
+        print("No bulbs found matching criteria.")
+        sys.exit(1)
 
     # Allow passing device as integer index
     device = int(args.device) if args.device and args.device.isdigit() else args.device
@@ -187,7 +228,45 @@ if __name__ == "__main__":
             proxy_mac = proxy_targets[0]
 
     visualizer = AudioVisualizer(targets, use_mesh=args.mesh, proxy=proxy_mac)
+
+    async def main():
+        loop = asyncio.get_running_loop()
+        stop_event = asyncio.Event()
+
+        def handle_signal():
+            print("\nShutting down gracefully...")
+            stop_event.set()
+            
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            try:
+                loop.add_signal_handler(sig, handle_signal)
+            except NotImplementedError:
+                # Signal handlers not supported on all platforms/loops
+                pass
+
+        try:
+            # Run visualizer and wait for stop event or completion
+            viz_task = asyncio.create_task(visualizer.run(device=device, stop_event=stop_event))
+            stop_task = asyncio.create_task(stop_event.wait())
+            
+            # Use a wait to allow signal to interrupt
+            done, pending = await asyncio.wait(
+                [viz_task, stop_task],
+                return_when=asyncio.FIRST_COMPLETED
+            )
+            
+            if stop_event.is_set():
+                print("Stopping visualizer...")
+                viz_task.cancel()
+                try:
+                    await viz_task
+                except asyncio.CancelledError:
+                    pass
+        finally:
+            # Explicitly turn off bulbs before exiting
+            await visualizer.stop()
+
     try:
-        asyncio.run(visualizer.run(device=device))
+        asyncio.run(main())
     except KeyboardInterrupt:
         pass

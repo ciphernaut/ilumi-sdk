@@ -196,6 +196,8 @@ class IlumiSDK:
             raise IlumiConnectionError(f"Connection to {self.mac_address} timed out.")
         except Exception as e:
             logger.error(f"Connection error: {e}")
+            if "CONNECTION_LIMIT_EXCEEDED" in str(e):
+                raise IlumiConnectionError(f"Bluetooth controller connection limit reached. Try using --mesh mode.")
             raise IlumiConnectionError(f"Failed to connect to {self.mac_address}: {e}")
 
         self._peer = Peer(self._connection)
@@ -227,8 +229,19 @@ class IlumiSDK:
         if not self._api_char:
             raise IlumiConnectionError(f"Ilumi API characteristic {ILUMI_API_CHAR_UUID} not found on {self.mac_address}")
         self._char = self._api_char
+        
+        # Monitor for disconnection
+        self._connection.on('disconnection', self._handle_disconnection)
+        
         await self._peer.subscribe(self._char, self._handle_notification)
         return self
+
+    def _handle_disconnection(self, reason):
+        logger.warning(f"Device {self.mac_address} disconnected. Reason: {reason}")
+        self._connection = None
+        self._peer = None
+        self._char = None
+        self._api_char = None
 
     async def __aexit__(self, *_):
         if self._connection:
@@ -325,11 +338,14 @@ class IlumiSDK:
         """Write without response (fire-and-forget)."""
         await self._write(payload, with_response=False)
 
-    async def _send_chunked_command(self, data: bytes) -> None:
+    async def _send_chunked_command(self, data: bytes, fast: bool = False) -> None:
         """Splits payloads >20 bytes into 10-byte DATA_CHUNK fragments."""
         data_length = len(data)
         if data_length <= 20:
-            await self._send_command(data)
+            if fast:
+                await self._send_command_fast(data)
+            else:
+                await self._send_command(data)
             return
         for offset in range(0, data_length, 10):
             chunk_size = min(10, data_length - offset)
@@ -337,9 +353,11 @@ class IlumiSDK:
             chunk_payload[0:chunk_size] = data[offset:offset+chunk_size]
             chunk_struct    = struct.pack("<H H 10s", data_length, offset, bytes(chunk_payload))
             cmd_header      = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_DATA_CHUNK)
-            await self._write(cmd_header + chunk_struct, with_response=True)
-            await asyncio.sleep(0.05)
-        await asyncio.sleep(0.5)
+            await self._write(cmd_header + chunk_struct, with_response=not fast)
+            if not fast:
+                await asyncio.sleep(0.05)
+        if not fast:
+            await asyncio.sleep(0.5)
 
     # ------------------------------------------------------------------
     # Discovery
@@ -377,7 +395,7 @@ class IlumiSDK:
     # Proxy messaging
     # ------------------------------------------------------------------
 
-    async def send_proxy_message(self, target_macs: List[str], inner_payload: bytes) -> None:
+    async def send_proxy_message(self, target_macs: List[str], inner_payload: bytes, fast: bool = False) -> None:
         """Routes an inner API payload to target MACs via the mesh."""
         for target_mac in target_macs:
             mac_parts = [int(x, 16) for x in target_mac.split(':')]
@@ -387,8 +405,9 @@ class IlumiSDK:
             proxy_data_len   = 6 + len(inner_payload)
             proxy_cmd    = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_PROXY_MSG)
             proxy_header = struct.pack("<B B H", service_type_ttl, 1, proxy_data_len)
-            await self._send_chunked_command(proxy_cmd + proxy_header + mac_bytes + inner_payload)
-            await asyncio.sleep(0.1)
+            await self._send_chunked_command(proxy_cmd + proxy_header + mac_bytes + inner_payload, fast=fast)
+            if not fast:
+                await asyncio.sleep(0.1)
 
     # ------------------------------------------------------------------
     # High-level commands (identical signatures to ilumi_sdk.IlumiSDK)
@@ -430,7 +449,7 @@ class IlumiSDK:
         cmd = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_SET_COLOR)
         payload = struct.pack("<B B B B B B B", clamp(r), clamp(g), clamp(b), clamp(w), clamp(brightness), 0, 0)
         if targets:
-            await self.send_proxy_message(targets, cmd + payload)
+            await self.send_proxy_message(targets, cmd + payload, fast=True)
         else:
             await self._send_command_fast(cmd + payload)
 
