@@ -136,9 +136,19 @@ class IlumiSDK:
     # Context manager
     # ------------------------------------------------------------------
 
+    @property
+    def is_connected(self) -> bool:
+        """Returns True if the SDK is connected to a bulb."""
+        return self._connection is not None and self._peer is not None
+
     async def __aenter__(self) -> "IlumiSDK":
         if not self.mac_address:
             raise ValueError("No MAC address specified or enrolled.")
+        
+        if self.is_connected:
+            logger.info(f"SDK already connected to {self.mac_address}")
+            return self
+
         self._device = await get_shared_device(self._transport)
         
         # Performance: brief scan to "warm up" the controller's knowledge of the device.
@@ -338,14 +348,11 @@ class IlumiSDK:
         """Write without response (fire-and-forget)."""
         await self._write(payload, with_response=False)
 
-    async def _send_chunked_command(self, data: bytes, fast: bool = False) -> None:
+    async def _send_chunked_command(self, data: bytes) -> None:
         """Splits payloads >20 bytes into 10-byte DATA_CHUNK fragments."""
         data_length = len(data)
         if data_length <= 20:
-            if fast:
-                await self._send_command_fast(data)
-            else:
-                await self._send_command(data)
+            await self._send_command(data)
             return
         for offset in range(0, data_length, 10):
             chunk_size = min(10, data_length - offset)
@@ -353,11 +360,9 @@ class IlumiSDK:
             chunk_payload[0:chunk_size] = data[offset:offset+chunk_size]
             chunk_struct    = struct.pack("<H H 10s", data_length, offset, bytes(chunk_payload))
             cmd_header      = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_DATA_CHUNK)
-            await self._write(cmd_header + chunk_struct, with_response=not fast)
-            if not fast:
-                await asyncio.sleep(0.05)
-        if not fast:
-            await asyncio.sleep(0.5)
+            await self._write(cmd_header + chunk_struct, with_response=True)
+            await asyncio.sleep(0.05)
+        await asyncio.sleep(0.5)
 
     # ------------------------------------------------------------------
     # Discovery
@@ -395,7 +400,7 @@ class IlumiSDK:
     # Proxy messaging
     # ------------------------------------------------------------------
 
-    async def send_proxy_message(self, target_macs: List[str], inner_payload: bytes, fast: bool = False) -> None:
+    async def send_proxy_message(self, target_macs: List[str], inner_payload: bytes) -> None:
         """Routes an inner API payload to target MACs via the mesh."""
         for target_mac in target_macs:
             mac_parts = [int(x, 16) for x in target_mac.split(':')]
@@ -405,9 +410,8 @@ class IlumiSDK:
             proxy_data_len   = 6 + len(inner_payload)
             proxy_cmd    = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_PROXY_MSG)
             proxy_header = struct.pack("<B B H", service_type_ttl, 1, proxy_data_len)
-            await self._send_chunked_command(proxy_cmd + proxy_header + mac_bytes + inner_payload, fast=fast)
-            if not fast:
-                await asyncio.sleep(0.1)
+            await self._send_chunked_command(proxy_cmd + proxy_header + mac_bytes + inner_payload)
+            await asyncio.sleep(0.1)
 
     # ------------------------------------------------------------------
     # High-level commands (identical signatures to ilumi_sdk.IlumiSDK)
@@ -444,12 +448,12 @@ class IlumiSDK:
 
     async def set_color_fast(self, r: int, g: int, b: int, w: int = 0, brightness: int = 255,
                              targets: Optional[List[str]] = None) -> None:
-        """Sets color without waiting for BLE acknowledgement."""
+        """Sets color. Uses mesh if targets are provided (reliable chunking), or direct fire-and-forget."""
         clamp = lambda x: max(0, min(255, int(x)))
         cmd = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_SET_COLOR)
         payload = struct.pack("<B B B B B B B", clamp(r), clamp(g), clamp(b), clamp(w), clamp(brightness), 0, 0)
         if targets:
-            await self.send_proxy_message(targets, cmd + payload, fast=True)
+            await self.send_proxy_message(targets, cmd + payload)
         else:
             await self._send_command_fast(cmd + payload)
 

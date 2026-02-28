@@ -124,6 +124,26 @@ class AudioVisualizer:
 
         print(f"{len(self.sdks)}/{total} bulbs connected.")
 
+        if self.use_mesh and not getattr(self, 'skip_health_check', False):
+            print("Verifying mesh nodes availability (5s scan)...")
+            try:
+                from bumble_sdk import IlumiSDK as BumbleSDK
+                discovered = await BumbleSDK.discover(timeout=5.0)
+                found_macs = {d['address'].upper() for d in discovered}
+                
+                # Proxy is considered online by definition if we are connected to it
+                proxy_mac = self.all_sdks[0].mac_address.upper()
+                found_macs.add(proxy_mac)
+                
+                offline = [m for m in self.targets if m.upper() not in found_macs]
+                if offline:
+                    print(f"Warning: {len(offline)} mesh nodes appear to be offline or out of range: {', '.join(offline)}")
+                    print("They might still respond if they are within range of the proxy bulb.")
+                else:
+                    print("All mesh nodes appear to be online.")
+            except Exception as e:
+                print(f"Mesh health check failed: {e}")
+
         try:
             print("Starting Audio Stream...")
             
@@ -145,6 +165,7 @@ class AudioVisualizer:
                         print("Disconnected. Attempting to reconnect...")
                         await asyncio.sleep(2.0)
                         results = await asyncio.gather(*(self._connect_sdk(sdk) for sdk in self.all_sdks))
+                        self.sdks = [sdk for sdk in results if sdk is not None]
                         if not self.sdks:
                             continue
                         print(f"Reconnected: {len(self.sdks)}/{len(self.all_sdks)} bulbs active.")
@@ -195,6 +216,7 @@ if __name__ == "__main__":
                         help="List available audio input devices and exit")
     parser.add_argument("--mesh", action="store_true", help="Use mesh routing via a single bulb connection")
     parser.add_argument("--proxy", type=str, help="Specify proxy bulb by name or MAC")
+    parser.add_argument("--skip-health-check", action="store_true", help="Skip the startup mesh health verification.")
     args = parser.parse_args()
 
     if args.list_devices:
@@ -228,6 +250,8 @@ if __name__ == "__main__":
             proxy_mac = proxy_targets[0]
 
     visualizer = AudioVisualizer(targets, use_mesh=args.mesh, proxy=proxy_mac)
+    visualizer.skip_health_check = args.skip_health_check
+    visualizer.skip_health_check = args.skip_health_check
 
     async def main():
         loop = asyncio.get_running_loop()
