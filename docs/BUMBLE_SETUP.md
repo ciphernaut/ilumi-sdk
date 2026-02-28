@@ -33,8 +33,9 @@ By default, Linux prevents non-root users from accessing raw USB devices. If you
     Create `/etc/udev/rules.d/99-bumble-bluetooth.rules` with the following content (adjust `idVendor` and `idProduct` to match your device from `bumble-usb-probe`):
 
     ```udev
-    SUBSYSTEM=="usb", ATTR{idVendor}=="0a12", ATTR{idProduct}=="0001", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+    SUBSYSTEM=="usb", ATTRS{idVendor}=="0a12", ATTRS{idProduct}=="0001", MODE="0666", DRIVERS=="usb"
     ```
+    *(Note: Using `ATTRS` instead of `ATTR` is often more reliable on modern systems).*
 
 2.  **Reload udev**:
     ```bash
@@ -59,3 +60,19 @@ If Bumble fails to claim the device even with the correct permissions, the kerne
 sudo systemctl stop bluetooth
 ```
 Or use `rfkill` to block the device.
+
+### Manual Unbinding
+Even with the correct permissions, the kernel's `btusb` driver may still be holding the device. Bumble now tries to auto-detach the driver (via `?detach=true` in the transport spec), but if that fails, you can manually unbind it:
+
+1. **Find the device path** (using `lsusb -t`):
+   ```bash
+   # Look for the port bound to 'btusb' for your 0a12:0001 device
+   lsusb -t
+   ```
+   Example: `Port 002: Dev 009, If 0, Class=Wireless, Driver=btusb` -> Path is `1-2:1.0` (Bus 1, Port 2, Interface 0).
+
+2. **Unbind it**:
+   ```bash
+   echo "1-2:1.0" | sudo tee /sys/bus/usb/drivers/btusb/unbind
+   echo "1-2:1.1" | sudo tee /sys/bus/usb/drivers/btusb/unbind
+   ```
