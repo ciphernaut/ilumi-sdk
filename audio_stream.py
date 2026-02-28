@@ -3,6 +3,7 @@ import numpy as np
 import sounddevice as sd
 from ilumi_sdk import IlumiSDK
 import config
+import os
 import math
 import argparse
 
@@ -29,6 +30,10 @@ class AudioVisualizer:
         self.b_val = 0.0
         self.decay = 0.85     
         self.smoothing = 0.4  
+
+        # Concurrency control: BlueZ needs a limit, Bumble can handle many more
+        limit = 100 if os.environ.get("ILUMI_USE_BUMBLE") == "1" else 2
+        self._connect_sem = asyncio.Semaphore(limit)
 
     def audio_callback(self, indata, frames, time, status):
         """Called by sounddevice for each block of audio."""
@@ -63,12 +68,13 @@ class AudioVisualizer:
 
     async def _connect_sdk(self, sdk):
         """Try to connect a single SDK; return it on success, None on failure."""
-        try:
-            await sdk.__aenter__()
-            return sdk
-        except Exception as e:
-            print(f"Warning: could not connect to {sdk.mac_address} – {e}. Skipping.")
-            return None
+        async with self._connect_sem:
+            try:
+                await sdk.__aenter__()
+                return sdk
+            except Exception as e:
+                print(f"Warning: could not connect to {sdk.mac_address} – {e}. Skipping.")
+                return None
 
     async def _send_color(self, sdk, r, g, b):
         """Send a color command to one SDK, logging but not raising on failure."""
