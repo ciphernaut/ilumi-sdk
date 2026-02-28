@@ -88,6 +88,11 @@ class IlumiSDK:
         self._mesh_info: List[Dict[str, Any]] = []
         self._mesh_event = asyncio.Event()
 
+    @property
+    def is_connected(self) -> bool:
+        """Returns True if the SDK is connected to a bulb."""
+        return self.client is not None and self.client.is_connected
+
     async def __aenter__(self):
         """Context manager to maintain a persistent connection."""
         if not self.mac_address:

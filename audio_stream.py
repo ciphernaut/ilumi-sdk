@@ -3,6 +3,7 @@ import numpy as np
 import sounddevice as sd
 from ilumi_sdk import IlumiSDK
 import config
+# XXX: harness - audio_stream needs more comprehensive testing
 import os
 import math
 import argparse

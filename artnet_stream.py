@@ -2,6 +2,7 @@ import asyncio
 import struct
 import argparse
 import config
+# XXX: harness - artnet_stream needs more comprehensive testing
 from ilumi_sdk import IlumiSDK
 
 ARTNET_PORT = 6454

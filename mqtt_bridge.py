@@ -2,6 +2,7 @@ import asyncio
 import json
 import paho.mqtt.client as mqtt
 import config
+# XXX: harness - mqtt_bridge needs more comprehensive testing
 from ilumi_sdk import IlumiSDK
 
 MQTT_BROKER = "127.0.0.1"
