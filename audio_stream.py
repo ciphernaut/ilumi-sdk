@@ -130,17 +130,18 @@ class AudioVisualizer:
             try:
                 from bumble_sdk import IlumiSDK as BumbleSDK
                 discovered = await BumbleSDK.discover(timeout=5.0)
-                found_macs = {d['address'].upper() for d in discovered}
+                found_macs = {config.normalize_mac(d['address']) for d in discovered}
                 
                 # Proxy is considered online by definition if we are connected to it
-                proxy_mac = self.all_sdks[0].mac_address.upper()
-                found_macs.add(proxy_mac)
+                proxy_mac = config.normalize_mac(self.all_sdks[0].mac_address)
+                if proxy_mac:
+                    found_macs.add(proxy_mac)
                 
-                offline = [m for m in self.targets if m.upper() not in found_macs]
+                offline = [m for m in self.targets if config.normalize_mac(m) not in found_macs]
                 if offline:
                     print(f"Warning: {len(offline)} mesh nodes appear to be offline or out of range: {', '.join(offline)}")
                     print("Excluding offline nodes from stream to improve reliability.")
-                    self.targets = [m for m in self.targets if m.upper() in found_macs]
+                    self.targets = [m for m in self.targets if config.normalize_mac(m) in found_macs]
                 else:
                     print("All mesh nodes appear to be online.")
                 print(f"Active Mesh Targets: {len(self.targets)} bulbs.")

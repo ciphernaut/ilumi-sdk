@@ -288,8 +288,11 @@ class IlumiSDK:
 
     async def send_proxy_message(self, target_macs: List[str], inner_payload: bytes):
         """Routes an inner API payload to a list of target MAC addresses via the mesh."""
+        import config
         for target_mac in target_macs:
-            mac_parts = [int(x, 16) for x in target_mac.split(':')]
+            # Normalize to remove Bumble suffixes (/P, /R)
+            normalized_mac = config.normalize_mac(target_mac)
+            mac_parts = [int(x, 16) for x in normalized_mac.split(':')]
             mac_parts.reverse() 
             mac_bytes = bytes(mac_parts)
             

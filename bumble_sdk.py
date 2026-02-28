@@ -175,7 +175,7 @@ class IlumiSDK:
         mac_address: Optional[str] = None,
         transport: Optional[str] = None,
     ):
-        self.mac_address = mac_address or config.get_config("mac_address")
+        self.mac_address = config.normalize_mac(mac_address or config.get_config("mac_address"))
         self.network_key = config.get_config("network_key", 0)
         self.seq_num     = config.get_config("seq_num", 0)
         self.dfu_key     = config.get_config("dfu_key", 0x12345678)
@@ -470,7 +470,9 @@ class IlumiSDK:
     async def send_proxy_message(self, target_macs: List[str], inner_payload: bytes) -> None:
         """Routes an inner API payload to target MACs via the mesh."""
         for target_mac in target_macs:
-            mac_parts = [int(x, 16) for x in target_mac.split(':')]
+            # Normalize to remove Bumble suffixes (/P, /R)
+            normalized_mac = config.normalize_mac(target_mac)
+            mac_parts = [int(x, 16) for x in normalized_mac.split(':')]
             mac_parts.reverse()
             mac_bytes = bytes(mac_parts)
             service_type_ttl = 47 if len(inner_payload) <= 17 else 15
