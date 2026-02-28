@@ -33,9 +33,8 @@ By default, Linux prevents non-root users from accessing raw USB devices. If you
     Create `/etc/udev/rules.d/99-bumble-bluetooth.rules` with the following content (adjust `idVendor` and `idProduct` to match your device from `bumble-usb-probe`):
 
     ```udev
-    SUBSYSTEM=="usb", ATTRS{idVendor}=="0a12", ATTRS{idProduct}=="0001", MODE="0666", DRIVERS=="usb"
+    SUBSYSTEM=="usb", ATTR{idVendor}=="0a12", ATTR{idProduct}=="0001", MODE="0666"
     ```
-    *(Note: Using `ATTRS` instead of `ATTR` is often more reliable on modern systems).*
 
 2.  **Reload udev**:
     ```bash
@@ -44,7 +43,17 @@ By default, Linux prevents non-root users from accessing raw USB devices. If you
 
 3.  **Reconnect**: Unplug and replug the dongle.
 
-## Usage
+## Smoke Test (with Sudo)
+
+If you still see `LIBUSB_ERROR_ACCESS`, verify if it is a pure permission issue by running with `sudo`:
+
+```bash
+sudo env PATH=$PATH ILUMI_USE_BUMBLE=1 ILUMI_BT_TRANSPORT=usb:0 python3 on.py --all
+```
+
+If this works, your udev rules are not yet effective. Check `ls -l /dev/bus/usb/...` to ensure the device is world-writable.
+
+## Troubleshooting
 
 Once configured, enable Bumble in the SDK using environment variables:
 

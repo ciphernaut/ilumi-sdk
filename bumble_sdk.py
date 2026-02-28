@@ -73,13 +73,7 @@ async def get_shared_device(transport_spec: str) -> Device:
         if _shared_device is not None:
             return _shared_device
         logger.info(f"Opening HCI transport: {transport_spec}")
-        # Explicitly request kernel driver detachment for USB transports
-        actual_spec = transport_spec
-        if actual_spec.startswith("usb:") and "detach=true" not in actual_spec:
-            actual_spec += ("&" if "?" in actual_spec else "?") + "detach=true"
-            logger.info(f"Appending auto-detach to spec: {actual_spec}")
-            
-        _shared_transport = await open_transport(actual_spec)
+        _shared_transport = await open_transport(transport_spec)
         _shared_device = Device.with_hci(
             "IlumiHost",
             "F0:F1:F2:F3:F4:F5",
