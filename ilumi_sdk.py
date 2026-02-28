@@ -205,7 +205,7 @@ class IlumiSDK:
         devices = await BleakScanner.discover(timeout=timeout)
         ilumi_bulbs = []
         for d in devices:
-            if d.name and ("ilumi" in d.name.lower() or d.name.startswith("L0")):
+            if d.name and ("ilumi" in d.name.lower() or d.name.startswith("L0") or d.name.startswith("Nrdic")):
                 ilumi_bulbs.append({"name": d.name, "address": d.address, "rssi": d.rssi})
         return ilumi_bulbs
 

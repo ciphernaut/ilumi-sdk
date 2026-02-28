@@ -450,7 +450,7 @@ class IlumiSDK:
             if isinstance(name, bytes):
                 name = name.decode('utf-8', errors='ignore')
             
-            if name and ("ilumi" in name.lower() or name.startswith("L0")):
+            if name and ("ilumi" in name.lower() or name.startswith("L0") or name.startswith("Nrdic")):
                 addr = str(adv.address)
                 if not any(b["address"] == addr for b in found):
                     found.append({"name": name, "address": addr, "rssi": adv.rssi})

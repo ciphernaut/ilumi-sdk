@@ -66,7 +66,7 @@ async def main():
                     await sdk.set_color_fast(0, 0, 0, 0, 0)
                 else:
                     print(f"Failed to commission '{name}' (SDK commission returned false).")
-        except Exception as e:
+        except (Exception, asyncio.CancelledError) as e:
             print(f"Could not connect to {mac}: {e}")
 
     print("\nEnrollment phase complete. You can now use the wrapper scripts with --name or --group.")
