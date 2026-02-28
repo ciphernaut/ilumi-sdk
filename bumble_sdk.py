@@ -34,6 +34,67 @@ _device_lock = asyncio.Lock()
 _warmup_lock = asyncio.Lock()
 _last_warmup_time = 0
 
+class CommandQueue:
+    """Manages serial execution of BLE commands to avoid adapter congestion."""
+    def __init__(self, max_depth: int = 5):
+        self.queue = asyncio.Queue()
+        self.max_depth = max_depth
+        self.worker_task = None
+
+    async def _worker(self):
+        while True:
+            item = await self.queue.get()
+            coro, future = item
+            try:
+                if future.done():
+                    # Coroutine was cancelled/dropped while in queue
+                    try: coro.close()
+                    except: pass
+                    continue
+
+                result = await coro
+                if not future.done():
+                    future.set_result(result)
+            except Exception as e:
+                if not future.done():
+                    future.set_exception(e)
+            finally:
+                self.queue.task_done()
+
+    def start(self):
+        if self.worker_task is None or self.worker_task.done():
+            self.worker_task = asyncio.create_task(self._worker())
+
+    async def execute(self, coro, high_priority: bool = False):
+        """Adds a command to the queue. Returns the result or raises exception."""
+        self.start()
+            
+        # If queue is full and this is a stream command, drop oldest to keep up
+        if not high_priority and self.queue.qsize() >= self.max_depth:
+            try:
+                dropped_item = self.queue.get_nowait()
+                _, dropped_future = dropped_item
+                if not dropped_future.done():
+                    dropped_future.set_exception(TimeoutError("Dropped from queue"))
+                self.queue.task_done()
+            except asyncio.QueueEmpty:
+                pass
+                
+        future = asyncio.get_running_loop().create_future()
+        await self.queue.put((coro, future))
+        return await future
+
+_command_queue = CommandQueue()
+
+def reset_global_state():
+    """Resets global locks and queues. Primarily for testing with fresh loops."""
+    global _command_queue, _device_lock, _warmup_lock, _shared_device, _shared_transport
+    _command_queue = CommandQueue()
+    _device_lock = asyncio.Lock()
+    _warmup_lock = asyncio.Lock()
+    _shared_device = None
+    _shared_transport = None
+
 
 class IlumiConnectionError(Exception):
     pass
@@ -334,10 +395,16 @@ class IlumiSDK:
         return header
 
     async def _write(self, payload: bytes, with_response: bool = True) -> None:
-        """Write to the Ilumi characteristic."""
-        if self._char is None:
+        """Write to the Ilumi characteristic via command queue."""
+        if not self.is_connected:
             raise IlumiConnectionError("Not connected")
-        await self._peer.write_value(self._char, payload, with_response=with_response)
+
+        async def do_write():
+            async with _device_lock:
+                if self._peer:
+                    await self._peer.write_value(self._char, payload, with_response=with_response)
+
+        await _command_queue.execute(do_write(), high_priority=with_response)
 
     async def _send_command(self, payload: bytes) -> None:
         """Write with response + short delay."""

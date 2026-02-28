@@ -138,9 +138,11 @@ class AudioVisualizer:
                 offline = [m for m in self.targets if m.upper() not in found_macs]
                 if offline:
                     print(f"Warning: {len(offline)} mesh nodes appear to be offline or out of range: {', '.join(offline)}")
-                    print("They might still respond if they are within range of the proxy bulb.")
+                    print("Excluding offline nodes from stream to improve reliability.")
+                    self.targets = [m for m in self.targets if m.upper() in found_macs]
                 else:
                     print("All mesh nodes appear to be online.")
+                print(f"Active Mesh Targets: {len(self.targets)} bulbs.")
             except Exception as e:
                 print(f"Mesh health check failed: {e}")
 
@@ -163,6 +165,7 @@ class AudioVisualizer:
                     # Check for disconnected SDKs and try to reconnect
                     if not self.sdks:
                         print("Disconnected. Attempting to reconnect...")
+                        # Ensure we don't spam reconnection attempts too fast
                         await asyncio.sleep(2.0)
                         results = await asyncio.gather(*(self._connect_sdk(sdk) for sdk in self.all_sdks))
                         self.sdks = [sdk for sdk in results if sdk is not None]
@@ -170,16 +173,29 @@ class AudioVisualizer:
                             continue
                         print(f"Reconnected: {len(self.sdks)}/{len(self.all_sdks)} bulbs active.")
 
-                    # Send colors to all active SDKs
-                    await asyncio.gather(*(self._send_color(sdk, self.r, self.g, self.b) for sdk in self.sdks))
+                    # Only send if we have sdk AND either non-mesh OR mesh with targets
+                    if self.sdks and (not self.use_mesh or self.targets):
+                        # Send colors to all active SDKs
+                        await asyncio.gather(*(self._send_color(sdk, self.r, self.g, self.b) for sdk in self.sdks))
+                    elif self.use_mesh and not self.targets:
+                        # Log once to avoid spamming the console
+                        if not getattr(self, '_targets_empty_logged', False):
+                            print("Warning: No active mesh targets online. Waiting...")
+                            self._targets_empty_logged = True
+                    
+                    if self.use_mesh and self.targets:
+                        self._targets_empty_logged = False
+                        
                     await asyncio.sleep(0.033) 
                         
         except asyncio.CancelledError:
             print("Visualizer task cancelled.")
         except Exception as e:
             print(f"An error occurred during audio streaming: {e}")
+            import traceback
+            traceback.print_exc()
         finally:
-            print("Visualizer run loop finished.")
+            print(f"Visualizer run loop finished. Stop event set: {self.stop_event.is_set()}")
 
     async def stop(self):
         """Turns off bulbs and cleans up SDK connections."""
@@ -258,7 +274,8 @@ if __name__ == "__main__":
         stop_event = asyncio.Event()
 
         def handle_signal():
-            print("\nShutting down gracefully...")
+            import time
+            print(f"\nSignal received at {time.strftime('%H:%M:%S')}. Shutting down gracefully...")
             stop_event.set()
             
         for sig in (signal.SIGINT, signal.SIGTERM):

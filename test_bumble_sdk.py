@@ -12,6 +12,9 @@ from bumble_sdk import IlumiSDK, IlumiApiCmdType, IlumiConnectionError
 
 class TestBumbleSDK(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
+        # Reset global state to avoid cross-test loop leak
+        bumble_sdk.reset_global_state()
+        
         # Patch Bumble dependencies
         self.mock_device = MagicMock()
         self.mock_peer = MagicMock()
@@ -103,6 +106,51 @@ class TestBumbleSDK(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(self.sdk._connection)
         self.assertIsNone(self.sdk._peer)
         self.assertFalse(self.sdk.is_connected)
+
+    async def test_command_queue_throttling(self):
+        """Verify that CommandQueue drops old stream frames but executes high-priority ones."""
+        queue = bumble_sdk.CommandQueue(max_depth=2)
+        
+        # We need a way to block the worker
+        blocker = asyncio.Event()
+        
+        async def blocked_coro():
+            await blocker.wait()
+            return "ok"
+
+        # f1 will be pulled by worker and wait on blocker
+        f1 = asyncio.ensure_future(queue.execute(blocked_coro(), high_priority=False))
+        
+        # Wait a tiny bit to ensure worker has pulled f1
+        await asyncio.sleep(0.01)
+
+        # Now worker is busy. Let's fill the queue.
+        # Queue has capacity 2.
+        m2 = AsyncMock()
+        m3 = AsyncMock()
+        m4 = AsyncMock()
+        
+        f2 = asyncio.ensure_future(queue.execute(m2(), high_priority=False)) # Q pos 1
+        f3 = asyncio.ensure_future(queue.execute(m3(), high_priority=False)) # Q pos 2
+        
+        # f4 should cause f2 to be dropped (f2 is head of queue)
+        f4 = asyncio.ensure_future(queue.execute(m4(), high_priority=False))
+        
+        # Verify f2 was dropped
+        with self.assertRaises(TimeoutError):
+            await f2
+            
+        # Release blocker so others can finish
+        blocker.set()
+        await asyncio.gather(f1, f3, f4)
+        
+        # m2 was called (to create the coro) but should NOT have been awaited
+        m2.assert_called_once()
+        m2.assert_not_awaited()
+        
+        # m3 and m4 should have been awaited
+        m3.assert_awaited_once()
+        m4.assert_awaited_once()
 
 if __name__ == '__main__':
     unittest.main()
