@@ -13,15 +13,16 @@ import logging
 import sys
 from typing import List, Optional, Dict, Any
 
+from bumble import hci, core
 from bumble.device import Device, Peer
 from bumble.transport import open_transport
 import config
 
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger("bumble_sdk")
-_handler = logging.StreamHandler(sys.stderr)
-_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
-logger.addHandler(_handler)
-logger.setLevel(logging.INFO)
 
 ILUMI_SERVICE_UUID    = "f000f0c0-0451-4000-b000-000000000000"
 ILUMI_API_CHAR_UUID   = "f000f0c1-0451-4000-b000-000000000000"
@@ -85,6 +86,21 @@ async def get_shared_device(transport_spec: str) -> Device:
         return _shared_device
 
 
+async def shutdown_bumble():
+    """Explicitly close the global Bumble transport to allow clean process exit."""
+    global _shared_device, _shared_transport
+    async with _device_lock:
+        if _shared_transport is not None:
+            logger.info("Shutting down Bumble transport...")
+            try:
+                await _shared_transport.close()
+            except Exception as e:
+                logger.error(f"Error during Bumble shutdown: {e}")
+            _shared_transport = None
+            _shared_device = None
+            logger.info("Bumble shutdown complete")
+
+
 class IlumiSDK:
     """
     Ilumi BLE SDK backed by Google Bumble (direct HCI).
@@ -122,21 +138,80 @@ class IlumiSDK:
         if not self.mac_address:
             raise ValueError("No MAC address specified or enrolled.")
         self._device = await get_shared_device(self._transport)
+        
+        # Performance: brief scan to "warm up" the controller's knowledge of the device
+        logger.info(f"Scanning for {self.mac_address} before connecting...")
+        await self._device.start_scanning(active=True)
+        await asyncio.sleep(2.0)
+        await self._device.stop_scanning()
+
         logger.info(f"Connecting to {self.mac_address}...")
         try:
-            self._connection = await self._device.connect(self.mac_address)
+            # Add a timeout to avoid hangs
+            # Explicitly use PUBLIC_DEVICE_ADDRESS as Ilumi bulbs are public
+            peer_addr = hci.Address(self.mac_address, hci.Address.PUBLIC_DEVICE_ADDRESS)
+            
+            # Relaxed parameters to help weak links (especially for CSR adapters)
+            from bumble.device import ConnectionParametersPreferences
+            prefs = {
+                hci.Phy.LE_1M: ConnectionParametersPreferences(
+                    connection_interval_min=24,
+                    connection_interval_max=40,
+                    max_latency=0,
+                    supervision_timeout=600  # 6 seconds
+                )
+            }
+
+            self._connection = await asyncio.wait_for(
+                self._device.connect(
+                    peer_addr,
+                    own_address_type=hci.OwnAddressType.PUBLIC,
+                    connection_parameters_preferences=prefs
+                ),
+                timeout=20.0
+            )
+            logger.info(f"Connected to {self.mac_address}")
+        except asyncio.TimeoutError:
+            logger.error(f"Connection to {self.mac_address} timed out after 20s")
+            # Try to stop any pending connection attempts
+            try:
+                await self._device.cancel_connection(self.mac_address)
+            except:
+                pass
+            raise IlumiConnectionError(f"Connection to {self.mac_address} timed out.")
         except Exception as e:
+            logger.error(f"Connection error: {e}")
             raise IlumiConnectionError(f"Failed to connect to {self.mac_address}: {e}")
 
         self._peer = Peer(self._connection)
-        await self._peer.discover_services()
-        services = self._peer.get_services_by_uuid(ILUMI_SERVICE_UUID)
-        if not services:
-            raise IlumiConnectionError(f"Ilumi service not found on {self.mac_address}")
-        chars = self._peer.get_characteristics_by_uuid(ILUMI_API_CHAR_UUID, service=services[0])
-        if not chars:
-            raise IlumiConnectionError(f"Ilumi API characteristic not found on {self.mac_address}")
-        self._char = chars[0]
+        
+        # Optimize: Discover ONLY the Ilumi service
+        target_service_uuid = core.UUID(ILUMI_SERVICE_UUID)
+        services = await self._peer.discover_services([target_service_uuid])
+        logger.debug(f"Discovered {len(services)} services")
+        
+        ilumi_service = next((s for s in services if s.uuid == target_service_uuid), None)
+        if not ilumi_service:
+            # Fallback to full discovery if targeted fails (some devices are picky)
+            all_services = await self._peer.discover_services()
+            ilumi_service = next((s for s in all_services if s.uuid == target_service_uuid), None)
+            
+        if not ilumi_service:
+            raise IlumiConnectionError(f"Ilumi service {ILUMI_SERVICE_UUID} not found on {self.mac_address}")
+            
+        # Optimize: Discover ONLY the Ilumi API characteristic
+        target_char_uuid = core.UUID(ILUMI_API_CHAR_UUID)
+        await ilumi_service.discover_characteristics([target_char_uuid])
+        
+        self._api_char = next((c for c in ilumi_service.characteristics if c.uuid == target_char_uuid), None)
+        if not self._api_char:
+            # Fallback to full char discovery
+            await ilumi_service.discover_characteristics()
+            self._api_char = next((c for c in ilumi_service.characteristics if c.uuid == target_char_uuid), None)
+
+        if not self._api_char:
+            raise IlumiConnectionError(f"Ilumi API characteristic {ILUMI_API_CHAR_UUID} not found on {self.mac_address}")
+        self._char = self._api_char
         await self._peer.subscribe(self._char, self._handle_notification)
         return self
 
@@ -465,12 +540,16 @@ async def execute_on_targets(
 ) -> Dict[str, Any]:
     """Helper to execute an SDK task across multiple bulbs (same API as ilumi_sdk)."""
     results = {}
-    for mac in targets:
-        sdk = IlumiSDK(mac)
-        try:
-            await coro_func(sdk)
-            results[mac] = {"success": True, "error": None}
-        except Exception as e:
-            logger.error(f"[{mac}] Error: {e}")
-            results[mac] = {"success": False, "error": str(e)}
+    try:
+        for mac in targets:
+            sdk = IlumiSDK(mac)
+            try:
+                await coro_func(sdk)
+                results[mac] = {"success": True, "error": None}
+            except Exception as e:
+                logger.error(f"[{mac}] Error: {e}")
+                results[mac] = {"success": False, "error": str(e)}
+    finally:
+        # Critical: Close global transport so process can exit
+        await shutdown_bumble()
     return results
