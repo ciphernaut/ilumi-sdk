@@ -53,6 +53,13 @@ async def stream_colors(targets, duration=10, fps=30):
     finally:
         for sdk in sdks:
             await sdk.__aexit__(None, None, None)
+            
+        # Final cleanup for Bumble transport
+        try:
+            from bumble_sdk import shutdown_bumble
+            await shutdown_bumble()
+        except ImportError:
+            pass
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Ilumi Fast Streaming Test")

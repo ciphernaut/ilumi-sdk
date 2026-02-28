@@ -31,6 +31,8 @@ ILUMI_API_CHAR_UUID   = "f000f0c1-0451-4000-b000-000000000000"
 _shared_device: Optional[Device] = None
 _shared_transport = None
 _device_lock = asyncio.Lock()
+_warmup_lock = asyncio.Lock()
+_last_warmup_time = 0
 
 
 class IlumiConnectionError(Exception):
@@ -139,11 +141,22 @@ class IlumiSDK:
             raise ValueError("No MAC address specified or enrolled.")
         self._device = await get_shared_device(self._transport)
         
-        # Performance: brief scan to "warm up" the controller's knowledge of the device
-        logger.info(f"Scanning for {self.mac_address} before connecting...")
-        await self._device.start_scanning(active=True)
-        await asyncio.sleep(2.0)
-        await self._device.stop_scanning()
+        # Performance: brief scan to "warm up" the controller's knowledge of the device.
+        # Use a shared lock and a 10s window to avoid redundant/conflicting scans during bulk connects.
+        async with _warmup_lock:
+            global _last_warmup_time
+            now = asyncio.get_event_loop().time()
+            if now - _last_warmup_time > 10.0:
+                logger.info(f"Scanning for devices (warmup) before connecting to {self.mac_address}...")
+                try:
+                    await self._device.start_scanning(active=True)
+                    await asyncio.sleep(2.0)
+                    await self._device.stop_scanning()
+                    _last_warmup_time = asyncio.get_event_loop().time()
+                except Exception as e:
+                    logger.warning(f"Warmup scan failed (could be concurrent): {e}")
+            else:
+                logger.debug(f"Skipping warmup scan for {self.mac_address} (last scan recent)")
 
         logger.info(f"Connecting to {self.mac_address}...")
         try:
@@ -162,14 +175,16 @@ class IlumiSDK:
                 )
             }
 
-            self._connection = await asyncio.wait_for(
-                self._device.connect(
-                    peer_addr,
-                    own_address_type=hci.OwnAddressType.PUBLIC,
-                    connection_parameters_preferences=prefs
-                ),
-                timeout=20.0
-            )
+            # Serialize connection attempts to avoid COMMAND_DISALLOWED
+            async with _device_lock:
+                self._connection = await asyncio.wait_for(
+                    self._device.connect(
+                        peer_addr,
+                        own_address_type=hci.OwnAddressType.PUBLIC,
+                        connection_parameters_preferences=prefs
+                    ),
+                    timeout=20.0
+                )
             logger.info(f"Connected to {self.mac_address}")
         except asyncio.TimeoutError:
             logger.error(f"Connection to {self.mac_address} timed out after 20s")

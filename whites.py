@@ -149,6 +149,13 @@ async def main():
                     await sdk.__aexit__(None, None, None)
                 except:
                     pass
+            # Final cleanup for Bumble transport
+            if os.environ.get('ILUMI_USE_BUMBLE') == '1':
+                try:
+                    from bumble_sdk import shutdown_bumble
+                    await shutdown_bumble()
+                except ImportError:
+                    pass
         return results
 
     if args.stream:

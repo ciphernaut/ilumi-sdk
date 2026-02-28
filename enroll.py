@@ -70,6 +70,13 @@ async def main():
             print(f"Could not connect to {mac}: {e}")
 
     print("\nEnrollment phase complete. You can now use the wrapper scripts with --name or --group.")
+    
+    # Final cleanup for Bumble transport
+    try:
+        from bumble_sdk import shutdown_bumble
+        await shutdown_bumble()
+    except ImportError:
+        pass
 
 if __name__ == "__main__":
     asyncio.run(main())

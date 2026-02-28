@@ -18,8 +18,20 @@ HIGH_MIN = 3000
 HIGH_MAX = 10000
 
 class AudioVisualizer:
-    def __init__(self, targets):
-        self.all_sdks = [IlumiSDK(mac) for mac in targets]
+    def __init__(self, targets, use_mesh=False, proxy=None):
+        self.targets = targets
+        self.use_mesh = use_mesh
+        self.proxy = proxy
+        self.all_sdks = []
+        
+        if self.use_mesh:
+            # In mesh mode, we only connect to the proxy bulb (or the first target)
+            proxy_mac = self.proxy if self.proxy else targets[0]
+            self.all_sdks = [IlumiSDK(proxy_mac)]
+            print(f"Mesh Mode: Commands will be proxied via {proxy_mac}")
+        else:
+            self.all_sdks = [IlumiSDK(mac) for mac in targets]
+            
         self.sdks = []  # populated after successful connect
         self.r = 0
         self.g = 0
@@ -77,11 +89,15 @@ class AudioVisualizer:
                 return None
 
     async def _send_color(self, sdk, r, g, b):
-        """Send a color command to one SDK, logging but not raising on failure."""
+        """Send a color command to one SDK (or via mesh), logging but not raising on failure."""
         try:
-            await sdk.set_color_fast(r, g, b, 0, 255)
+            if self.use_mesh:
+                # Send proxy command to all targets via the connected proxy SDK
+                await sdk.set_color_fast(r, g, b, 0, 255, targets=self.targets)
+            else:
+                await sdk.set_color_fast(r, g, b, 0, 255)
         except Exception as e:
-            print(f"Warning: lost connection to {sdk.mac_address} – {e}. Skipping.")
+            print(f"Warning: command failed for {sdk.mac_address} – {e}. Skipping.")
 
     async def run(self, device=None):
         total = len(self.all_sdks)
@@ -128,6 +144,13 @@ class AudioVisualizer:
                     await sdk.__aexit__(None, None, None)
                 except Exception:
                     pass
+            
+        # Final cleanup for Bumble transport
+        try:
+            from bumble_sdk import shutdown_bumble
+            await shutdown_bumble()
+        except ImportError:
+            pass
 
 
 
@@ -141,6 +164,8 @@ if __name__ == "__main__":
                         help="Audio input device name or index (use --list-devices to see options)")
     parser.add_argument("--list-devices", action="store_true",
                         help="List available audio input devices and exit")
+    parser.add_argument("--mesh", action="store_true", help="Use mesh routing via a single bulb connection")
+    parser.add_argument("--proxy", type=str, help="Specify proxy bulb by name or MAC")
     args = parser.parse_args()
 
     if args.list_devices:
@@ -155,7 +180,13 @@ if __name__ == "__main__":
     # Allow passing device as integer index
     device = int(args.device) if args.device and args.device.isdigit() else args.device
 
-    visualizer = AudioVisualizer(targets)
+    proxy_mac = None
+    if args.proxy:
+        proxy_targets = config.resolve_targets(target_mac=args.proxy, target_name=args.proxy)
+        if proxy_targets:
+            proxy_mac = proxy_targets[0]
+
+    visualizer = AudioVisualizer(targets, use_mesh=args.mesh, proxy=proxy_mac)
     try:
         asyncio.run(visualizer.run(device=device))
     except KeyboardInterrupt:
