@@ -1,23 +1,12 @@
 import asyncio
-from bleak import BleakScanner
 from ilumi_sdk import IlumiSDK, ILUMI_SERVICE_UUID
 import config
 import random
 
 async def main():
     print("Scanning for Ilumi bulbs in the area (5 seconds)...")
-    devices = await BleakScanner.discover(timeout=5.0, return_adv=True)
+    ilumi_devices = await IlumiSDK.discover(timeout=5.0)
     
-    ilumi_devices = []
-    # discover(return_adv=True) returns a dict of {mac_address: (BLEDevice, AdvertisementData)}
-    for mac, (device, adv_data) in devices.items():
-        # Check if it advertises the Ilumi Service UUID or has 'ilumi' in the name
-        uuids = [u.lower() for u in adv_data.service_uuids]
-        if ILUMI_SERVICE_UUID.lower() in uuids or (device.name and "ilumi" in device.name.lower()):
-            # Filter out devices avoiding duplicates from BLE scanner bounce
-            if device.address not in [b.address for b in ilumi_devices]:
-                ilumi_devices.append(device)
-
     if not ilumi_devices:
         print("No Ilumi bulbs found.")
         return
@@ -36,7 +25,7 @@ async def main():
     existing_bulbs = config.get_all_bulbs()
 
     for idx, device in enumerate(ilumi_devices):
-        mac = device.address
+        mac = device["address"]
         print(f"\n--- Bulb {idx+1}/{len(ilumi_devices)}: {mac} ---")
         
         if mac in existing_bulbs:

@@ -1,3 +1,16 @@
+import os as _os
+if _os.environ.get("ILUMI_USE_BUMBLE"):
+    from bumble_sdk import (  # noqa: F401
+        IlumiSDK, IlumiConnectionError, IlumiProtocolError,
+        IlumiApiCmdType, IlumiConfigCmdType,
+        ILUMI_SERVICE_UUID, ILUMI_API_CHAR_UUID,
+        execute_on_targets,
+    )
+    import sys as _sys
+    _sys.modules[__name__] = _sys.modules["bumble_sdk"]
+    # We don't raise SystemExit here so that the module remains available
+    # but redirects to the bumble version.
+
 import asyncio
 import struct
 import time
@@ -67,6 +80,7 @@ class IlumiSDK:
         self.seq_num = config.get_config("seq_num", 0)
         self.dfu_key = config.get_config("dfu_key", 0x12345678)
         self.client: Optional[BleakClient] = None
+        self._ble_device = None  # can be set to a BLEDevice to skip per-connect scan
         self._last_device_info: Optional[Dict[str, Any]] = None
         self._last_color: Optional[Dict[str, int]] = None
         self._device_info_event = asyncio.Event()
@@ -79,7 +93,8 @@ class IlumiSDK:
         if not self.mac_address:
             raise ValueError("No MAC address specified or enrolled.")
         
-        self.client = BleakClient(self.mac_address, timeout=10.0)
+        target = self._ble_device if self._ble_device is not None else self.mac_address
+        self.client = BleakClient(target, timeout=10.0)
         logger.info(f"Connecting to {self.mac_address}...")
         try:
             await self.client.connect()
@@ -290,10 +305,10 @@ class IlumiSDK:
         
         try:
             await self._send_command(cmd + payload)
-            logger.info("Commissioning payload sent successfully.")
-            config.update_config("network_key", new_network_key)
-            config.update_config("group_id", group_id)
-            config.update_config("node_id", node_id)
+            if new_network_key != 0:
+                config.update_config("network_key", new_network_key)
+                config.update_config("group_id", group_id)
+                config.update_config("node_id", node_id)
             return True
         except Exception as e:
             logger.error(f"Failed to commission: {e}")

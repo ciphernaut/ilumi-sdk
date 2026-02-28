@@ -137,9 +137,10 @@ Wait... which bulb is best for `--proxy`?
 > Use `python3 pyvis_mapper.py --load mesh_data.json` to instantly regenerate the map after renaming bulbs in `ilumi_config.json` without needing to re-scan the mesh!
 
 ## Troubleshooting
-If animations don't play:
-1.  **Protocol Fix**: Ensure `IlumiApiCmdType.ILUMI_API_CMD_SET_COLOR_PATTERN` is set to `7` and `START_COLOR_PATTERN` is set to `8` in `ilumi_sdk.py`.
-2.  **Explicit Start**: `effects.py` handles both uploading and triggering the animation pattern.
+1.  **Bumble USB Permissions**: If using the Bumble backend and you see `LIBUSB_ERROR_ACCESS`, refer to the [Bumble Bluetooth Setup Guide](docs/BUMBLE_SETUP.md).
+2.  **Animations**: If animations don't play:
+    1.  **Protocol Fix**: Ensure `IlumiApiCmdType.ILUMI_API_CMD_SET_COLOR_PATTERN` is set to `7` and `START_COLOR_PATTERN` is set to `8` in `ilumi_sdk.py`.
+    2.  **Explicit Start**: `effects.py` handles both uploading and triggering the animation pattern.
 
 ## Permissions & Debugging
 Refer to `ENABLEMENT.md` for Bluetooth permission setup and HCI snoop log gathering instructions. For protocol captures, you can uncomment the "observing mode" loop in `effects.py` to keep the connection alive.
