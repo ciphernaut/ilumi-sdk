@@ -75,7 +75,9 @@ class IlumiSDK:
         Initialize the SDK.
         :param mac_address: MAC address of the target bulb. If None, uses value from config.
         """
-        self.mac_address = mac_address or config.get_config("mac_address")
+        # Normalize MAC address to remove Bumble suffixes (/P, /R) if present
+        import config
+        self.mac_address = config.normalize_mac(mac_address or config.get_config("mac_address"))
         self.network_key = config.get_config("network_key", 0)
         self.seq_num = config.get_config("seq_num", 0)
         self.dfu_key = config.get_config("dfu_key", 0x12345678)

@@ -1,5 +1,11 @@
 import json
 import os
+import re
+
+def normalize_mac(mac):
+    """Removes Bumble-style suffixes (/P, /R) from a MAC address."""
+    if not mac: return None
+    return re.sub(r'/[PR]$', '', str(mac)).upper()
 
 CONFIG_FILE = "ilumi_config.json"
 
@@ -54,6 +60,10 @@ def add_bulb(mac, name, groups_input, node_id=None):
     else:
         groups = []
 
+    # If already exists with similar MAC (maybe normalized), remove the old one first
+    norm_new = normalize_mac(mac)
+    config["bulbs"] = {k: v for k, v in config["bulbs"].items() if normalize_mac(k) != norm_new}
+
     config["bulbs"][mac] = {
         "name": name,
         "groups": groups,
@@ -66,8 +76,9 @@ def get_bulb_by_name(name):
     """Returns a tuple of (mac, bulb_data) matching the exact name, or (None, None)."""
     if not name: return None, None
     bulbs = get_all_bulbs()
+    norm_name = name.lower()
     for mac, data in bulbs.items():
-        if data.get("name", "").lower() == name.lower():
+        if data.get("name", "").lower() == norm_name:
             return mac, data
     return None, None
 
@@ -110,6 +121,11 @@ def resolve_targets(target_mac=None, target_name=None, target_group=None, target
             print(f"Warning: No bulb found with name '{target_name}'")
             
     if target_mac:
+        # Check if the MAC is already enrolled (normalize both)
+        norm_target = normalize_mac(target_mac)
+        for mac in bulbs.keys():
+            if normalize_mac(mac) == norm_target:
+                return [mac]
         return [target_mac]
 
     # If nothing was specified, fall back to the legacy 'mac_address' if it exists,
