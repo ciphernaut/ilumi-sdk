@@ -1,4 +1,13 @@
 import os as _os
+import asyncio
+import struct
+import time
+import logging
+import sys
+from typing import List, Optional, Dict, Any, Callable
+from bleak import BleakClient, BleakScanner
+import config
+
 if _os.environ.get("ILUMI_USE_BUMBLE"):
     from bumble_sdk import (  # noqa: F401
         IlumiSDK, IlumiConnectionError, IlumiProtocolError,
@@ -11,15 +20,6 @@ if _os.environ.get("ILUMI_USE_BUMBLE"):
     # We don't raise SystemExit here so that the module remains available
     # but redirects to the bumble version.
 
-import asyncio
-import struct
-import time
-import logging
-import sys
-from typing import List, Optional, Dict, Any, Callable
-from bleak import BleakClient, BleakScanner
-import config
-
 # Configure logging to stderr to avoid corrupting stdout (used for JSON output)
 logger = logging.getLogger("ilumi_sdk")
 _handler = logging.StreamHandler(sys.stderr)
@@ -30,6 +30,67 @@ logger.setLevel(logging.INFO)
 
 ILUMI_SERVICE_UUID = "f000f0c0-0451-4000-b000-000000000000"
 ILUMI_API_CHAR_UUID = "f000f0c1-0451-4000-b000-000000000000"
+
+# Shared global state for serialization
+_device_lock = asyncio.Lock()
+
+class CommandQueue:
+    """Manages serial execution of BLE commands to avoid adapter congestion."""
+    def __init__(self, max_depth: int = 5):
+        self.queue = asyncio.Queue()
+        self.max_depth = max_depth
+        self.worker_task = None
+
+    async def _worker(self):
+        while True:
+            item = await self.queue.get()
+            coro, future = item
+            try:
+                if future.done():
+                    # Coroutine was cancelled/dropped while in queue
+                    try: coro.close()
+                    except: pass
+                    continue
+
+                result = await coro
+                if not future.done():
+                    future.set_result(result)
+            except Exception as e:
+                if not future.done():
+                    future.set_exception(e)
+            finally:
+                self.queue.task_done()
+
+    def start(self):
+        if self.worker_task is None or self.worker_task.done():
+            self.worker_task = asyncio.create_task(self._worker())
+
+    async def execute(self, coro, high_priority: bool = False):
+        """Adds a command to the queue. Returns the result or raises exception."""
+        self.start()
+            
+        # If queue is full and this is a stream command, drop oldest to keep up
+        if not high_priority and self.queue.qsize() >= self.max_depth:
+            try:
+                dropped_item = self.queue.get_nowait()
+                _, dropped_future = dropped_item
+                if not dropped_future.done():
+                    dropped_future.set_exception(TimeoutError("Dropped from queue"))
+                self.queue.task_done()
+            except asyncio.QueueEmpty:
+                pass
+                
+        future = asyncio.get_running_loop().create_future()
+        await self.queue.put((coro, future))
+        return await future
+
+_command_queue = CommandQueue()
+
+def reset_global_state():
+    """Resets global locks and queues. Primarily for testing with fresh loops."""
+    global _command_queue, _device_lock
+    _command_queue = CommandQueue()
+    _device_lock = asyncio.Lock()
 
 class IlumiConnectionError(Exception):
     """Raised when failing to connect to an Ilumi bulb."""
@@ -100,13 +161,21 @@ class IlumiSDK:
         if not self.mac_address:
             raise ValueError("No MAC address specified or enrolled.")
         
-        target = self._ble_device if self._ble_device is not None else self.mac_address
-        self.client = BleakClient(target, timeout=10.0)
-        logger.info(f"Connecting to {self.mac_address}...")
-        try:
-            await self.client.connect()
-        except Exception as e:
-            raise IlumiConnectionError(f"Failed to connect to {self.mac_address}: {e}")
+        if self.is_connected:
+            return self
+
+        async with _device_lock:
+            # Re-check inside lock to be absolutely certain
+            if self.is_connected:
+                return self
+                
+            target = self._ble_device if self._ble_device is not None else self.mac_address
+            self.client = BleakClient(target, timeout=10.0)
+            logger.info(f"Connecting to {self.mac_address}...")
+            try:
+                await self.client.connect()
+            except Exception as e:
+                raise IlumiConnectionError(f"Failed to connect to {self.mac_address}: {e}")
         
         def notification_handler(sender, data: bytearray):
             if len(data) >= 2:
@@ -229,25 +298,36 @@ class IlumiSDK:
         
         return header
 
+    async def _write(self, payload: bytes, with_response: bool = True):
+        """INTERNAL: Serialized GATT write."""
+        if not self.client or not self.client.is_connected:
+            raise IlumiConnectionError("Not connected")
+
+        async def do_write():
+            if self.client and self.client.is_connected:
+                await self.client.write_gatt_char(ILUMI_API_CHAR_UUID, payload, response=with_response)
+
+        await _command_queue.execute(do_write(), high_priority=with_response)
+
     async def _send_command(self, payload: bytes):
         """Sends a command with GATT write response expectation."""
         if self.client and self.client.is_connected:
-            await self.client.write_gatt_char(ILUMI_API_CHAR_UUID, payload, response=True)
+            await self._write(payload, with_response=True)
             await asyncio.sleep(0.1)
             return
 
         async with self as managed_sdk:
-            await managed_sdk.client.write_gatt_char(ILUMI_API_CHAR_UUID, payload, response=True)
+            await managed_sdk._write(payload, with_response=True)
             await asyncio.sleep(0.5)
 
     async def _send_command_fast(self, payload: bytes):
         """Sends a command without waiting for GATT response (write command)."""
         if self.client and self.client.is_connected:
-            await self.client.write_gatt_char(ILUMI_API_CHAR_UUID, payload, response=False)
+            await self._write(payload, with_response=False)
             return
 
         async with self as managed_sdk:
-            await managed_sdk.client.write_gatt_char(ILUMI_API_CHAR_UUID, payload, response=False)
+            await managed_sdk._write(payload, with_response=False)
 
     async def _send_chunked_command(self, data: bytes):
         """Splits payloads > 20 bytes into 10-byte fragments for reliable BLE transfer."""
@@ -265,15 +345,15 @@ class IlumiSDK:
                 chunk_struct = struct.pack("<H H 10s", data_length, offset, bytes(chunk_payload))
                 cmd_header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_DATA_CHUNK)
                 logger.debug(f"Sending chunk {offset}/{data_length}")
-                await target_client.write_gatt_char(ILUMI_API_CHAR_UUID, cmd_header + chunk_struct, response=True)
+                await target_sdk._write(cmd_header + chunk_struct, with_response=True)
                 await asyncio.sleep(0.05)
             await asyncio.sleep(0.5)
 
         if self.client and self.client.is_connected:
-            await _do_send(self.client)
+            await _do_send(self)
         else:
             async with self as managed_sdk:
-                await _do_send(managed_sdk.client)
+                await _do_send(managed_sdk)
 
     async def _send_raw_command(self, cmd_type: int, payload: bytes):
         """
