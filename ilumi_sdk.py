@@ -133,6 +133,18 @@ class IlumiSDK:
     Main SDK class for interacting with Ilumi Smart Bulbs via BLE.
     Supports direct control, mesh proxying, and device management.
     """
+    ILUMI_AQUA = (0, 255, 255, 0, 255)
+
+    # Hardware-backed Circadian profile mapping (extracted from Java SDK)
+    CIRCADIAN_PROFILE = {
+        "05:30": "8281FF", # Light Lavender/Blue
+        "11:00": "D7EFFF", # Bright Sky Blue
+        "14:00": "D8FFAA", # Lime/Yellow Tint
+        "17:00": "BAFF4D", # Lime
+        "20:00": "FEFF0E", # Yellow
+        "22:00": "FFA700"  # Orange
+    }
+
     def __init__(self, mac_address: Optional[str] = None):
         """
         Initialize the SDK.
@@ -487,7 +499,7 @@ class IlumiSDK:
         else:
             await self._send_command(cmd + payload)
 
-    async def set_color_pattern(self, scene_idx: int, frames: List[Dict[str, int]], repeatable: int = 1, start_now: int = 1):
+    async def set_color_pattern(self, scene_idx: int, frames: List[Dict[str, int]], repeatable: int = 1, start_now: int = 1, targets: Optional[List[str]] = None):
         """Uploads and triggers an animation pattern."""
         clamp = lambda x: max(0, min(255, int(x)))
         cmd = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_SET_COLOR_PATTERN)
@@ -501,7 +513,11 @@ class IlumiSDK:
         array_size = len(frames)
         scene_header = struct.pack("<H B B B B B", total_struct_size, scene_idx, array_size, repeatable, scene_idx, start_now)
         full_payload = cmd + scene_header + frame_bytes
-        await self._send_chunked_command(full_payload)
+        
+        if targets:
+            await self.send_proxy_message(targets, full_payload)
+        else:
+            await self._send_chunked_command(full_payload)
 
     async def start_color_pattern(self, scene_idx: int):
         """Starts a previously uploaded animation scene."""
@@ -564,13 +580,14 @@ class IlumiSDK:
         else:
             await self._send_command(cmd + payload)
 
-    async def sync_time(self, targets: Optional[List[str]] = None):
+    async def sync_time(self, timestamp: Optional[float] = None, targets: Optional[List[str]] = None):
         """
-        Synchronizes the bulb's internal clock with the current system time.
+        Synchronizes the bulb's internal clock with the provided timestamp or current system time.
+        :param timestamp: Optional Unix timestamp (float). If None, uses local system time.
         :param targets: Optional list of target MAC addresses for mesh proxying.
         """
         import time
-        now = int(time.time())
+        now = int(timestamp if timestamp is not None else time.time())
         cmd = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_SET_DATE_TIME)
         payload = struct.pack("<I", now)
         
@@ -579,6 +596,89 @@ class IlumiSDK:
             await self.send_proxy_message(targets, cmd + payload)
         else:
             await self._send_command(cmd + payload)
+
+    async def upload_circadian_profile(self, profile: Optional[Dict[str, str]] = None, scene_idx: int = 1, timestamp: Optional[float] = None, targets: Optional[List[str]] = None):
+        """
+        Calculate and upload a 24-hour circadian profile, reordered to start from 'now'.
+        If profile is None, uses the default CIRCADIAN_PROFILE.
+        Profile should be a dict of "HH:MM": "HEXCOLOR".
+        :param timestamp: Optional Unix timestamp to use for 'now'. If None, uses local system time.
+        """
+        import time
+        if profile is None:
+            profile = self.CIRCADIAN_PROFILE
+            
+        sorted_times = sorted(profile.keys())
+        
+        def time_to_seconds(ts):
+            h, m = map(int, ts.split(':'))
+            return h * 3600 + m * 60
+            
+        # Determine "now" in seconds since midnight
+        lt = time.localtime(timestamp) if timestamp is not None else time.localtime()
+        now_sec = lt.tm_hour * 3600 + lt.tm_min * 60 + lt.tm_sec
+        
+        times_sec = [time_to_seconds(ts) for ts in sorted_times]
+        
+        # Find the point immediately before/at now
+        current_idx = -1
+        for i in range(len(times_sec)):
+            if times_sec[i] <= now_sec:
+                current_idx = i
+            else:
+                break
+        
+        if current_idx == -1:
+            current_idx = len(times_sec) - 1 # Before the first point, so last point of prev day applies
+            
+        next_idx = (current_idx + 1) % len(times_sec)
+        
+        # Create ordered sequence of indices starting from next_idx
+        ordered_indices = []
+        for j in range(len(times_sec)):
+            ordered_indices.append((next_idx + j) % len(times_sec))
+            
+        frames = []
+        for k in range(len(ordered_indices)):
+            idx = ordered_indices[k]
+            prev_idx = (idx - 1) % len(times_sec)
+            
+            t_curr = times_sec[idx]
+            t_prev = times_sec[prev_idx]
+            
+            if k == 0:
+                # First frame: transition from NOW to t_curr
+                if t_curr <= now_sec:
+                    duration = (24 * 3600 - now_sec) + t_curr
+                else:
+                    duration = t_curr - now_sec
+            else:
+                # Subsequent frames: transition from prev to curr
+                if t_curr <= t_prev:
+                    duration = (24 * 3600 - t_prev) + t_curr
+                else:
+                    duration = t_curr - t_prev
+            
+            hex_color = profile[sorted_times[idx]]
+            r = int(hex_color[0:2], 16)
+            g = int(hex_color[2:4], 16)
+            b = int(hex_color[4:6], 16)
+            
+            frames.append({
+                'r': r, 'g': g, 'b': b, 'w': 0, 'brightness': 255,
+                'sustain_ms': 0,
+                'transit_ms': int(duration * 1000)
+            })
+            
+        # 1. Set base color to the 'current' point for a smooth transition start
+        cur_hex = profile[sorted_times[current_idx]]
+        cr, cg, cb = int(cur_hex[0:2], 16), int(cur_hex[2:4], 16), int(cur_hex[4:6], 16)
+        logger.info(f"Setting base circadian color to {cur_hex} (point {sorted_times[current_idx]})")
+        await self.set_color(cr, cg, cb, 0, 255, targets=targets)
+        await asyncio.sleep(0.5)
+        
+        logger.info(f"Uploading reordered circadian profile starting with transition to {sorted_times[next_idx]}.")
+        return await self.set_color_pattern(scene_idx, frames, repeatable=255, start_now=1, targets=targets)
 
     async def get_circadian(self, target: Optional[str] = None) -> Optional[bool]:
         """
