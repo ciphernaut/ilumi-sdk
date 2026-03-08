@@ -46,19 +46,42 @@ Action: Trigger a custom effect on bulb "four".
 python3 effects.py radiation_leak --name four --json
 ```
 
-## 3. Core SDK & GAI Integration
+## 3. Core SDK & AI Agent Integration
 
-For complex logic or persistent control, AI agents should use the `IlumiSDK` class in `ilumi_sdk.py`.
+For direct manipulation or complex logic within an agentic workflow, use the `IlumiSDK` class in `ilumi_sdk.py`.
 
-### AI Discoverability
-- **Discovery**: Use `await IlumiSDK.discover()` to find bulbs.
-- **Connection**: Always use `async with IlumiSDK(mac_address) as sdk:` for reliable communication.
-- **Function Calling**: Use `tools.json` to understand the standard parameter schemas for bulb control.
+### Direct SDK Usage Example
+Agents should use the asynchronous context manager to ensure safe connection handling and multiplexing.
 
-### GAI Readiness
-- **Logging**: Internal SDK logs are sent to `stderr`.
-- **JSON Output**: CLI tools prioritize parsable JSON on `stdout`.
-- **Safety**: Raw commands are protected by `_send_raw_command` with explicit "Brick Clause" warnings in docstrings.
+```python
+import asyncio
+from ilumi_sdk import IlumiSDK
+
+async def main():
+    # Targets can be resolved from ilumi_config.json
+    mac = "E2:B0:F7:F4:50:60"
+    
+    async with IlumiSDK(mac) as sdk:
+        # Get current state
+        color = await sdk.get_bulb_color()
+        print(f"Current color: {color}")
+        
+        # Set a new color with hardware fading
+        await sdk.set_color_smooth(0, 255, 0, duration_ms=1000)
+        
+        # Query hardware info
+        info = await sdk.get_device_info()
+        print(f"Firmware: {info['firmware_version']}")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+### Agent Discovery Guidelines
+- **Configuration Parsing**: Always read `ilumi_config.json` FIRST to map human-readable names to MAC addresses.
+- **Connection Stewardship**: Use `async with IlumiSDK(mac) as sdk:` to prevent "InProgress" errors on the HCI adapter.
+- **Token Efficiency**: When running CLI tools, use the `--json` flag to minimize stdout verbosity.
+- **Mesh Logic**: Use `sdk.send_proxy_message()` only when sequential `--stream` control is insufficient for the required latency.
 
 ### Protocol Knowledge
-Deep technical details on the GATT protocol (sequence numbering, proxy endianness, etc.) can be found in `PROTOCOL.md`.
+Deep technical details on the GATT protocol (sequence numbering, proxy endianness, etc.) can be found in [PROTOCOL.md](./PROTOCOL.md).
