@@ -75,6 +75,20 @@ Every control script supports the following routing arguments:
   python3 effects.py fireworks --group lounge
   ```
 
+- **Hardware-Backed Circadian Rhythm:**
+  The bulbs can automatically adjust their color temperature over the course of a day using their internal Real-Time Clock (RTC).
+  
+  ```bash
+  # Synchronize the bulb's clock with your computer
+  python3 circadian.py sync --all
+  
+  # Enable circadian mode
+  python3 circadian.py on --all
+  
+  # Check if circadian mode is active
+  python3 circadian.py status --name kitchen
+  ```
+
 ### Meltdown Effects (Custom)
 We've added custom high-intensity effects:
 - **core_breach**: Trigger via `python3 whites.py core_breach`. Uses the bulb's hardware flicker mode for an unstable molten orange glow.

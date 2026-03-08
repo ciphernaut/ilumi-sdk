@@ -9,10 +9,10 @@
 
 ## Deferred/Unimplemented Original App Features
 The following features exist in the original Ilumi Android App's BLE GATT protocol but have not yet been implemented in our Python SDK:
-- [ ] **Alarms and Scheduling**: (`ILUMI_API_CMD_SET_DAILY_ALARM`, `ILUMI_API_CMD_SET_CALENDAR_EVENT`) - The bulbs have an internal Real-Time Clock (RTC) and can store hardware-level schedules.
+- [/] **Alarms and Scheduling**: (`ILUMI_API_CMD_SET_DAILY_ALARM`, `ILUMI_API_CMD_SET_CALENDAR_EVENT`) - The bulbs have an internal Real-Time Clock (RTC). **Clock synchronization is now implemented via `sync_time()`.**
 - [ ] **iBeacon Emulation/Configuration**: (`ILUMI_API_CMD_SET_IBEACON`) - The original bulbs could act as Bluetooth LE iBeacons for spatial tracking.
 - [ ] **Hardware Actions/Triggers**: (`ILUMI_API_CMD_ADD_ACTION`) - Configuring internal hardware macros.
-- [ ] **Circadian Rhythms**: (`ILUMI_API_CMD_ENABLE_CIRCADIAN`) - Hardware-backed automatic color temperature adjustment slowly over the course of a day.
+- [x] **Circadian Rhythms**: (`ILUMI_API_CMD_ENABLE_CIRCADIAN`) - Hardware-backed automatic color temperature adjustment slowly over the course of a day.
 
 ## Phase 7: Polish & UX Details
 - [x] **Hardware Fading/Transitions**: Implement `ILUMI_API_CMD_SET_COLOR_SMOOTH` as the default in `on.py`, `off.py`, `whites.py`, and `color.py`, adding a `--no-fade` opt-out flag. Fixed fade granularity to ensure millisecond-level precision.

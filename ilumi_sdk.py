@@ -109,6 +109,7 @@ class IlumiApiCmdType:
     ILUMI_API_CMD_SET_COLOR_PATTERN = 7
     ILUMI_API_CMD_SET_DAILY_ALARM = 9
     ILUMI_API_CMD_START_COLOR_PATTERN = 8 # Added from Java analysis
+    ILUMI_API_CMD_SET_DATE_TIME = 12
     ILUMI_API_GET_BULB_COLOR = 16
     ILUMI_API_CMD_SET_CANDL_MODE = 35
     ILUMI_API_CMD_SET_COLOR_SMOOTH = 37
@@ -121,6 +122,7 @@ class IlumiApiCmdType:
     ILUMI_API_CMD_SET_COLOR_NEED_RESP = 54
     ILUMI_API_CMD_CONFIG = 65
     ILUMI_API_CMD_QUERY_ROUTING = 31
+    ILUMI_API_CMD_ENABLE_CIRCADIAN = 42
 
 class IlumiConfigCmdType:
     """Mapping of commands within the ILUMI_API_CMD_CONFIG type."""
@@ -150,6 +152,8 @@ class IlumiSDK:
         self._color_event = asyncio.Event()
         self._mesh_info: List[Dict[str, Any]] = []
         self._mesh_event = asyncio.Event()
+        self._circadian_state: Optional[bool] = None
+        self._circadian_event = asyncio.Event()
 
     @property
     def is_connected(self) -> bool:
@@ -197,6 +201,10 @@ class IlumiSDK:
                                         "brightness": inner_payload[5]
                                     }
                                     self._color_event.set()
+                            elif inner_type == IlumiApiCmdType.ILUMI_API_CMD_ENABLE_CIRCADIAN:
+                                if len(inner_payload) >= 2:
+                                    self._circadian_state = bool(inner_payload[1])
+                                    self._circadian_event.set()
                 
                 elif cmd_type == IlumiApiCmdType.ILUMI_API_CMD_GET_DEVICE_INFO:
                     if len(data) >= 14:
@@ -224,6 +232,12 @@ class IlumiSDK:
                             "brightness": data[8]
                         }
                         self._color_event.set()
+                
+                elif cmd_type == IlumiApiCmdType.ILUMI_API_CMD_ENABLE_CIRCADIAN:
+                    # Payload is 1 byte: 1 for enabled, 0 for disabled
+                    if len(data) >= 5:
+                        self._circadian_state = bool(data[4])
+                        self._circadian_event.set()
                 
                 elif cmd_type == IlumiApiCmdType.ILUMI_API_CMD_QUERY_ROUTING:
                     if len(data) >= 4:
@@ -345,7 +359,7 @@ class IlumiSDK:
                 chunk_struct = struct.pack("<H H 10s", data_length, offset, bytes(chunk_payload))
                 cmd_header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_DATA_CHUNK)
                 logger.debug(f"Sending chunk {offset}/{data_length}")
-                await target_sdk._write(cmd_header + chunk_struct, with_response=True)
+                await target_client._write(cmd_header + chunk_struct, with_response=True)
                 await asyncio.sleep(0.05)
             await asyncio.sleep(0.5)
 
@@ -535,6 +549,60 @@ class IlumiSDK:
         
         logger.info(f"Sending DFU mode entry command with key: {hex(self.dfu_key)}")
         await self._send_command(cmd + payload)
+
+    async def set_circadian(self, enabled: bool, targets: Optional[List[str]] = None):
+        """
+        Enables or disables the hardware-native circadian rhythm mode.
+        :param enabled: True to enable, False to disable.
+        :param targets: Optional list of target MAC addresses for mesh proxying.
+        """
+        cmd = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_ENABLE_CIRCADIAN)
+        payload = struct.pack("<B", 1 if enabled else 0)
+        
+        if targets:
+            await self.send_proxy_message(targets, cmd + payload)
+        else:
+            await self._send_command(cmd + payload)
+
+    async def sync_time(self, targets: Optional[List[str]] = None):
+        """
+        Synchronizes the bulb's internal clock with the current system time.
+        :param targets: Optional list of target MAC addresses for mesh proxying.
+        """
+        import time
+        now = int(time.time())
+        cmd = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_SET_DATE_TIME)
+        payload = struct.pack("<I", now)
+        
+        logger.info(f"Synchronizing bulb clock to {now}...")
+        if targets:
+            await self.send_proxy_message(targets, cmd + payload)
+        else:
+            await self._send_command(cmd + payload)
+
+    async def get_circadian(self, target: Optional[str] = None) -> Optional[bool]:
+        """
+        Queries the current circadian rhythm state from the bulb.
+        :param target: Optional target MAC address for mesh proxying.
+        :return: True if enabled, False if disabled, None if timeout.
+        """
+        self._circadian_state = None
+        self._circadian_event.clear()
+        
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_ENABLE_CIRCADIAN)
+        # Query mode: send command header with no payload
+        
+        if target:
+            await self.send_proxy_message([target], header)
+        else:
+            await self._send_command(header)
+            
+        try:
+            await asyncio.wait_for(self._circadian_event.wait(), timeout=5.0)
+            return self._circadian_state
+        except asyncio.TimeoutError:
+            logger.error("Timed out waiting for circadian status.")
+            return None
 
     async def get_mesh_info(self) -> List[Dict[str, Any]]:
         """
