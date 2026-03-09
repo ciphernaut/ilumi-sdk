@@ -105,25 +105,37 @@ class IlumiProtocolError(Exception):
 
 
 class IlumiApiCmdType:
-    ILUMI_API_CMD_SET_COLOR         = 0
-    ILUMI_API_CMD_SET_DEAULT_COLOR  = 1
-    ILUMI_API_CMD_TURN_ON           = 4
-    ILUMI_API_CMD_TURN_OFF          = 5
+    ILUMI_API_CMD_SET_COLOR = 0
+    ILUMI_API_CMD_SET_DEAULT_COLOR = 1
+    ILUMI_API_CMD_TURN_ON = 4
+    ILUMI_API_CMD_TURN_OFF = 5
     ILUMI_API_CMD_SET_COLOR_PATTERN = 7
     ILUMI_API_CMD_START_COLOR_PATTERN = 8
-    ILUMI_API_CMD_SET_DAILY_ALARM   = 9
-    ILUMI_API_GET_BULB_COLOR        = 16
-    ILUMI_API_CMD_PROXY_MSG         = 28
-    ILUMI_API_CMD_QUERY_ROUTING     = 31
-    ILUMI_API_CMD_SET_CANDL_MODE    = 35
-    ILUMI_API_CMD_SET_COLOR_SMOOTH  = 37
-    ILUMI_API_CMD_GET_DEVICE_INFO   = 40
-    ILUMI_API_CMD_ADD_ACTION        = 50
-    ILUMI_API_CMD_DATA_CHUNK        = 52
+    ILUMI_API_CMD_SET_DAILY_ALARM = 9
+    ILUMI_API_CMD_SET_CALENDAR_EVENT = 10
+    ILUMI_API_CMD_SET_DATE_TIME = 12
+    ILUMI_API_CMD_GET_DATE_TIME = 13
+    ILUMI_API_CMD_DELETE_ALARM = 14
+    ILUMI_API_CMD_DELETE_ALL_ALARMS = 15
+    ILUMI_API_GET_BULB_COLOR = 16
+    ILUMI_API_CMD_PROXY_MSG = 28
+    ILUMI_API_CMD_QUERY_ROUTING = 31
+    ILUMI_API_CMD_SET_CANDL_MODE = 35
+    ILUMI_API_CMD_SET_COLOR_SMOOTH = 37
+    ILUMI_API_CMD_HEARTBEAT = 39
+    ILUMI_API_CMD_GET_DEVICE_INFO = 40
+    ILUMI_API_CMD_ENABLE_CIRCADIAN = 42
+    ILUMI_API_CMD_ADD_ACTION = 50
+    ILUMI_API_CMD_DEL_ACTION = 51
+    ILUMI_API_CMD_DATA_CHUNK = 52
     ILUMI_API_CMD_SET_COLOR_NEED_RESP = 54
-    ILUMI_API_CMD_COMMISSION_WITH_ID  = 58
-    ILUMI_API_CMD_CONFIG              = 65
-    ILUMI_API_CMD_TREE_MESH_PROXY     = 68
+    ILUMI_API_CMD_SET_DEFAULT_ACTION_IDX = 56
+    ILUMI_API_CMD_COMMISSION_WITH_ID = 58
+    ILUMI_API_CMD_SET_BRIGHTNESS = 61
+    ILUMI_API_CMD_CONFIG = 65
+    ILUMI_API_CMD_TREE_MESH_PROXY = 68
+    ILUMI_API_CMD_GET_HARDWARE_TYPE = 70
+    ILUMI_API_CMD_GET_ALARM_DATA = 75
 
 
 class IlumiConfigCmdType:
@@ -188,7 +200,10 @@ class IlumiSDK:
 
         self._last_color: Optional[Dict[str, int]] = None
         self._last_device_info: Optional[Dict[str, Any]] = None
-        self._color_event       = asyncio.Event()
+        self._color_event = asyncio.Event()
+        self._get_alarm_data_event = asyncio.Event()
+        self._last_alarm_data: Optional[bytes] = None
+        self._circadian_event = asyncio.Event()
         self._device_info_event = asyncio.Event()
         self._mesh_info: List[Dict[str, Any]] = []
         self._mesh_event = asyncio.Event()
@@ -345,6 +360,13 @@ class IlumiSDK:
                             "w": inner[4], "brightness": inner[5]
                         }
                         self._color_event.set()
+                    elif inner[0] == IlumiApiCmdType.ILUMI_API_CMD_ENABLE_CIRCADIAN and len(inner) >= 2:
+                        self._circadian_state = bool(inner[1])
+                        self._circadian_event.set()
+        elif cmd_type == IlumiApiCmdType.ILUMI_API_CMD_GET_ALARM_DATA:
+            if len(data) >= 4:
+                self._last_alarm_data = bytes(data[4:])
+                self._get_alarm_data_event.set()
 
         elif cmd_type == IlumiApiCmdType.ILUMI_API_CMD_GET_DEVICE_INFO:
             if len(data) >= 14:
@@ -386,10 +408,14 @@ class IlumiSDK:
     # ------------------------------------------------------------------
 
     def _pack_header(self, message_type: int) -> bytes:
-        """Packs the standard 6-byte Ilumi header."""
+        """Standard 6-byte Ilumi header [NetKey(4), Seq(1), Opcode(1)]."""
+        network_id_bytes = struct.pack("<I", self.network_key)
+        
+        # Increment sequence number (usually even)
         if self.seq_num % 2 != 0:
             self.seq_num = (self.seq_num + 1) % 256
-        header = struct.pack("<I", self.network_key) + struct.pack("B B", self.seq_num, message_type)
+            
+        header = network_id_bytes + struct.pack("B B", self.seq_num, message_type)
         self.seq_num = (self.seq_num + 2) % 256
         config.update_config("seq_num", self.seq_num)
         return header
@@ -641,6 +667,88 @@ class IlumiSDK:
             except asyncio.TimeoutError:
                 break
         return self._mesh_info
+
+    @staticmethod
+    def _bin_to_bcd(val: int) -> int:
+        """Converts an integer to Binary Coded Decimal (BCD) byte format."""
+        return ((val // 10) << 4) | (val % 10)
+
+    async def sync_time(self, timestamp: Optional[float] = None, targets: Optional[List[str]] = None):
+        """Sets the bulb's internal RTC to the given timestamp (default: now)."""
+        import time
+        ts = int(timestamp or time.time())
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_SET_DATE_TIME)
+        payload = struct.pack("<I", ts)
+        if targets:
+            await self.send_proxy_message(targets, header + payload)
+        else:
+            await self._send_command(header + payload)
+
+    async def add_action(self, action_idx: int, command_payload: bytes, next_action_idx: int = 0xFF, delay_ms: int = 0):
+        """Stores an autonomous hardware action (macro) on the bulb."""
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_ADD_ACTION)
+        if delay_ms < 65535:
+            time_val, time_unit = delay_ms, 0
+        else:
+            time_val, time_unit = delay_ms // 1000, 1
+        action_hdr = struct.pack("<B B H B B H", action_idx, next_action_idx, time_val, time_unit, 0, len(command_payload))
+        logger.info(f"Uploading hardware action {action_idx}...")
+        await self._send_chunked_command(header + action_hdr + command_payload)
+
+    async def set_daily_alarm(self, alarm_idx: int, hour: int, minute: int, days_mask: int, action_idx: int):
+        """
+        Schedules a recurring daily alarm.
+        This method automatically converts the local time to GMT for the bulb's internal clock.
+        """
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_SET_DAILY_ALARM)
+        
+        # GMT conversion: bulbs use UTC internal clock for alarms
+        import datetime
+        now_dt = datetime.datetime.now(datetime.timezone.utc)
+        local_dt = now_dt.astimezone()
+        offset_minutes = round((local_dt.replace(tzinfo=None) - now_dt.replace(tzinfo=None)).total_seconds() / 60)
+        
+        total_minutes = (hour * 60) + minute
+        gmt_total_minutes = (total_minutes - offset_minutes + 1440) % 1440
+        gmt_hour = gmt_total_minutes // 60
+        gmt_min = gmt_total_minutes % 60
+
+        # No BCD used in the protocol for these fields
+        payload = struct.pack("<B B B B B", alarm_idx, action_idx, gmt_hour, gmt_min, days_mask)
+        logger.info(f"Setting daily alarm {alarm_idx} for local {hour:02d}:{minute:02d} (GMT {gmt_hour:02d}:{gmt_min:02d})...")
+        await self._send_command(header + payload)
+
+    async def set_calendar_event(self, alarm_idx: int, action_idx: int, year: int, month: int, day: int, hour: int, minute: int):
+        """Schedules a one-time calendar event (converted to GMT)."""
+        import datetime
+        local_dt = datetime.datetime(2000 + year, month, day, hour, minute)
+        utc_dt = local_dt.astimezone(datetime.timezone.utc)
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_SET_CALENDAR_EVENT)
+        # Year is offset from 2000 (e.g., 26 for 2026). No BCD.
+        payload = struct.pack("<B B B B B B B", 
+                              alarm_idx, action_idx, 
+                              utc_dt.year - 2000, utc_dt.month, utc_dt.day, 
+                              utc_dt.hour, utc_dt.minute)
+        logger.info(f"Setting calendar event {alarm_idx} for {utc_dt.strftime('%Y-%m-%d %H:%M')} UTC...")
+        await self._send_command(header + payload)
+
+    async def delete_alarm(self, alarm_idx: int):
+        """Deletes a scheduled alarm index."""
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_DELETE_ALARM)
+        payload = struct.pack("<B", alarm_idx)
+        await self._send_command(header + payload)
+
+    async def delete_all_alarms(self):
+        """Deletes all scheduled alarms."""
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_DELETE_ALL_ALARMS)
+        await self._send_command(header)
+
+    async def get_alarm_data(self, alarm_idx: int) -> Optional[bytes]:
+        """Queries raw alarm configuration data."""
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_GET_ALARM_DATA)
+        payload = struct.pack("<B", alarm_idx)
+        await self._send_command(header + payload)
+        return None
 
 async def execute_on_targets(
     targets: List[str], coro_func
