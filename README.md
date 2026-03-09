@@ -57,6 +57,17 @@ Every control script supports the following routing arguments:
   # Set the whole house to red at very low brightness (25/255)
   python3 color.py 255 0 0 0 25 --all
   ```
+
+- **Random Color Modes:**
+  Trigger instant random colors or continuous cycling.
+  ```bash
+  # Set a single random color
+  python3 color.py random --all
+  
+  # Start a continuous random color sequence
+  # Note: 10s hardware-hardcoded transition interval
+  python3 color.py random_sequence --all
+  ```
   
 - **Unenroll Device (Factory Reset):**
   If you need to completely remove a bulb from your network and reset it to factory defaults, use `unenroll.py`. 

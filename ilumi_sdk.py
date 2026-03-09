@@ -115,13 +115,18 @@ class IlumiApiCmdType:
     ILUMI_API_CMD_DELETE_ALARM = 14
     ILUMI_API_CMD_DELETE_ALL_ALARMS = 15
     ILUMI_API_GET_BULB_COLOR = 16
+    ILUMI_API_CMD_DELETE_COLOR_PATTERN = 18
+    ILUMI_API_CMD_DELETE_ALL_COLOR_PATTERNS = 19
+    ILUMI_API_CMD_CLEAR_ALL_USER_DATA = 20
     ILUMI_API_CMD_PROXY_MSG = 28
     ILUMI_API_CMD_QUERY_ROUTING = 31
     ILUMI_API_CMD_SET_CANDL_MODE = 35
     ILUMI_API_CMD_SET_COLOR_SMOOTH = 37
+    ILUMI_API_CMD_RANDOM_COLOR_SEQUENCE = 38
     ILUMI_API_CMD_HEARTBEAT = 39
     ILUMI_API_CMD_GET_DEVICE_INFO = 40
     ILUMI_API_CMD_ENABLE_CIRCADIAN = 42
+    ILUMI_API_CMD_SET_RANDOM_COLOR = 48
     ILUMI_API_CMD_ADD_ACTION = 50
     ILUMI_API_CMD_DEL_ACTION = 51
     ILUMI_API_CMD_DATA_CHUNK = 52
@@ -789,6 +794,32 @@ class IlumiSDK:
         logger.info(f"Uploading hardware action {action_idx} (payload len: {len(command_payload)})...")
         await self._send_chunked_command(header + action_hdr + command_payload)
 
+    async def delete_color_pattern(self, scene_idx: int):
+        """Deletes a specific color pattern (scene)."""
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_DELETE_COLOR_PATTERN)
+        payload = struct.pack("<B", scene_idx)
+        await self._send_command(header + payload)
+
+    async def delete_all_color_patterns(self):
+        """Deletes all custom color patterns."""
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_DELETE_ALL_COLOR_PATTERNS)
+        await self._send_command(header)
+
+    async def clear_all_user_data(self):
+        """Unenrolls the bulb and resets all user data (Manufacturer Reset)."""
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_CLEAR_ALL_USER_DATA)
+        await self._send_command(header)
+
+    async def set_random_color(self):
+        """Sets the bulb to a random color."""
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_SET_RANDOM_COLOR)
+        await self._send_command(header)
+
+    async def random_color_sequence(self):
+        """Starts a sequence of random colors."""
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_RANDOM_COLOR_SEQUENCE)
+        await self._send_command(header)
+
     async def set_daily_alarm(self, alarm_idx: int, hour: int, minute: int, days_mask: int, action_idx: int):
         """
         Schedules a recurring daily alarm to trigger a stored action.
@@ -802,8 +833,18 @@ class IlumiSDK:
         header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_SET_DAILY_ALARM)
         
         # Original SDK logic: Bulb always operates on GMT for alarms.
-        # We must convert local hour/min to GMT.
-        # Note: sync_time() sets the bulb to Unix UTC.
+        import datetime
+        now_dt = datetime.datetime.now(datetime.timezone.utc)
+        local_dt = now_dt.astimezone()
+        offset_seconds = (local_dt.replace(tzinfo=None) - now_dt.replace(tzinfo=None)).total_seconds()
+        offset_minutes = round(offset_seconds / 60)
+        
+        total_minutes = (hour * 60) + minute
+        gmt_total_minutes = (total_minutes - offset_minutes + 1440) % 1440
+        gmt_hour = gmt_total_minutes // 60
+        gmt_min = gmt_total_minutes % 60
+
+        payload = struct.pack("<B B B B B", alarm_idx, action_idx, gmt_hour, gmt_min, days_mask)
         logger.info(f"Setting daily alarm {alarm_idx} for local {hour:02d}:{minute:02d} (GMT {gmt_hour:02d}:{gmt_min:02d})...")
         await self._send_command(header + payload)
 

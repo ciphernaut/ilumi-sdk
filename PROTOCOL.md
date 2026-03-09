@@ -70,3 +70,31 @@ Queries the bulb for hardware/firmware metadata.
   - `model_number` (`uint8`)
   - `reset_reason` (`uint16_le`)
   - `ble_stack_version` (`uint16_le`)
+### 18: DELETE_COLOR_PATTERN
+Deletes a specific color pattern index.
+- **Payload (1 byte)**: `scene_idx` (`uint8`)
+
+### 19: DELETE_ALL_COLOR_PATTERNS
+Deletes all stored color patterns on the bulb.
+- **Payload**: None
+
+### 20: CLEAR_ALL_USER_DATA
+Factory resets the bulb and clears enrollment (Network Key, Node ID, etc.).
+- **Payload**: None
+
+### 38: RANDOM_COLOR_SEQUENCE
+Starts a continuous sequence of random colors.
+- **Payload**: None
+- **Characteristic**: Hardware-defined slow transition (approx. every **10 seconds**).
+
+### 48: SET_RANDOM_COLOR
+Sets the bulb to a single random color.
+- **Payload**: None
+
+### 84: PING
+Sends a heartbeat to the bulb to check connectivity and latency.
+- **Payload**: Variable (The payload will be echoed back in the response).
+
+### 85: PING_ECHO
+The response sent by the bulb to a PING command.
+- **Notification Response**: Contains the exact payload sent in the PING command.

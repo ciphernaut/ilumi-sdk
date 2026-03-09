@@ -9,9 +9,9 @@ import config
 
 async def main():
     parser = argparse.ArgumentParser(description="Set Ilumi bulb(s) color")
-    parser.add_argument("r", type=int, help="Red (0-255)")
-    parser.add_argument("g", type=int, help="Green (0-255)")
-    parser.add_argument("b", type=int, help="Blue (0-255)")
+    parser.add_argument("r", type=str, help="Red (0-255) or 'random' / 'random_sequence'")
+    parser.add_argument("g", type=int, nargs="?", default=0, help="Green (0-255)")
+    parser.add_argument("b", type=int, nargs="?", default=0, help="Blue (0-255)")
     parser.add_argument("w", type=int, nargs="?", default=0, help="White (0-255)")
     parser.add_argument("brightness", type=int, nargs="?", default=255, help="Brightness (0-255)")
     parser.add_argument("--mac", type=str, help="Target a specific MAC address")
@@ -51,23 +51,43 @@ async def main():
             args.fade = 0
 
     async def _set_color(sdk):
-        if not args.json:
-            print(f"[{sdk.mac_address}] Setting color R:{args.r} G:{args.g} B:{args.b} W:{args.w} Bri:{args.brightness} (Fade: {args.fade}ms)...")
         async with sdk:
-            if args.fade > 0:
-                await sdk.set_color_smooth(args.r, args.g, args.b, args.w, args.brightness, duration_ms=args.fade)
+            if args.r.lower() == "random":
+                if not args.json:
+                    print(f"[{sdk.mac_address}] Setting RANDOM color...")
+                await sdk.set_random_color()
+            elif args.r.lower() == "random_sequence":
+                if not args.json:
+                    print(f"[{sdk.mac_address}] Starting RANDOM color SEQUENCE...")
+                await sdk.random_color_sequence()
             else:
-                await sdk.set_color(args.r, args.g, args.b, args.w, args.brightness)
+                r_val = int(args.r)
+                if not args.json:
+                    print(f"[{sdk.mac_address}] Setting color R:{r_val} G:{args.g} B:{args.b} W:{args.w} Bri:{args.brightness} (Fade: {args.fade}ms)...")
+                if args.fade > 0:
+                    await sdk.set_color_smooth(r_val, args.g, args.b, args.w, args.brightness, duration_ms=args.fade)
+                else:
+                    await sdk.set_color(r_val, args.g, args.b, args.w, args.brightness)
 
     async def _mesh_set_color(sdk):
-        if not args.json:
-            print(f"[{sdk.mac_address}] Sending mesh proxy color change to {len(targets)} targets (Fade: {args.fade}ms, Retries: {args.retries})...")
         async with sdk:
             for i in range(args.retries):
-                if args.fade > 0:
-                    await sdk.set_color_smooth(args.r, args.g, args.b, args.w, args.brightness, duration_ms=args.fade, targets=targets)
+                if args.r.lower() == "random":
+                    if not args.json:
+                        print(f"[{sdk.mac_address}] Sending mesh RANDOM color to {len(targets)} targets...")
+                    await sdk.set_random_color(targets=targets)
+                elif args.r.lower() == "random_sequence":
+                    if not args.json:
+                        print(f"[{sdk.mac_address}] Sending mesh RANDOM SEQUENCE to {len(targets)} targets...")
+                    await sdk.random_color_sequence(targets=targets)
                 else:
-                    await sdk.set_color(args.r, args.g, args.b, args.w, args.brightness, targets=targets)
+                    r_val = int(args.r)
+                    if not args.json:
+                        print(f"[{sdk.mac_address}] Sending mesh color R:{r_val} G:{args.g} B:{args.b} to {len(targets)} targets...")
+                    if args.fade > 0:
+                        await sdk.set_color_smooth(r_val, args.g, args.b, args.w, args.brightness, duration_ms=args.fade, targets=targets)
+                    else:
+                        await sdk.set_color(r_val, args.g, args.b, args.w, args.brightness, targets=targets)
                 if i < args.retries - 1:
                     await asyncio.sleep(0.3)
 
@@ -89,10 +109,16 @@ async def main():
             if active_sdks:
                 coros = []
                 for sdk in active_sdks:
-                    if args.fade > 0:
-                        coros.append(sdk.set_color_smooth(args.r, args.g, args.b, args.w, args.brightness, duration_ms=args.fade))
+                    if args.r.lower() == "random":
+                        coros.append(sdk.set_random_color())
+                    elif args.r.lower() == "random_sequence":
+                        coros.append(sdk.random_color_sequence())
                     else:
-                        coros.append(sdk.set_color(args.r, args.g, args.b, args.w, args.brightness))
+                        r_val = int(args.r)
+                        if args.fade > 0:
+                            coros.append(sdk.set_color_smooth(r_val, args.g, args.b, args.w, args.brightness, duration_ms=args.fade))
+                        else:
+                            coros.append(sdk.set_color(r_val, args.g, args.b, args.w, args.brightness))
                 
                 outcomes = await asyncio.gather(*coros, return_exceptions=True)
                 for sdk, outcome in zip(active_sdks, outcomes):

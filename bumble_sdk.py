@@ -118,13 +118,18 @@ class IlumiApiCmdType:
     ILUMI_API_CMD_DELETE_ALARM = 14
     ILUMI_API_CMD_DELETE_ALL_ALARMS = 15
     ILUMI_API_GET_BULB_COLOR = 16
+    ILUMI_API_CMD_DELETE_COLOR_PATTERN = 18
+    ILUMI_API_CMD_DELETE_ALL_COLOR_PATTERNS = 19
+    ILUMI_API_CMD_CLEAR_ALL_USER_DATA = 20
     ILUMI_API_CMD_PROXY_MSG = 28
     ILUMI_API_CMD_QUERY_ROUTING = 31
     ILUMI_API_CMD_SET_CANDL_MODE = 35
     ILUMI_API_CMD_SET_COLOR_SMOOTH = 37
+    ILUMI_API_CMD_RANDOM_COLOR_SEQUENCE = 38
     ILUMI_API_CMD_HEARTBEAT = 39
     ILUMI_API_CMD_GET_DEVICE_INFO = 40
     ILUMI_API_CMD_ENABLE_CIRCADIAN = 42
+    ILUMI_API_CMD_SET_RANDOM_COLOR = 48
     ILUMI_API_CMD_ADD_ACTION = 50
     ILUMI_API_CMD_DEL_ACTION = 51
     ILUMI_API_CMD_DATA_CHUNK = 52
@@ -740,6 +745,32 @@ class IlumiSDK:
                               utc_dt.hour, utc_dt.minute)
         logger.info(f"Setting calendar event {alarm_idx} for {utc_dt.strftime('%Y-%m-%d %H:%M')} UTC...")
         await self._send_command(header + payload)
+
+    async def delete_color_pattern(self, scene_idx: int):
+        """Deletes a specific color pattern (scene)."""
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_DELETE_COLOR_PATTERN)
+        payload = struct.pack("<B", scene_idx)
+        await self._send_command(header + payload)
+
+    async def delete_all_color_patterns(self):
+        """Deletes all custom color patterns."""
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_DELETE_ALL_COLOR_PATTERNS)
+        await self._send_command(header)
+
+    async def clear_all_user_data(self):
+        """Unenrolls the bulb and resets all user data (Manufacturer Reset)."""
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_CLEAR_ALL_USER_DATA)
+        await self._send_command(header)
+
+    async def set_random_color(self):
+        """Sets the bulb to a random color."""
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_SET_RANDOM_COLOR)
+        await self._send_command(header)
+
+    async def random_color_sequence(self):
+        """Starts a sequence of random colors."""
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_RANDOM_COLOR_SEQUENCE)
+        await self._send_command(header)
 
     async def delete_alarm(self, alarm_idx: int):
         """Deletes a scheduled alarm index."""
