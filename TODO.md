@@ -34,7 +34,7 @@ The following features exist in the original Ilumi Android App's BLE GATT protoc
     - [ ] `ILUMI_API_CMD_GET_TEMP_VOLTAGE` (47)
     - [ ] `ILUMI_API_CMD_BLINK_WITH_COLOR`/`BLINK_WITH_DEAULT_COLOR` (2, 3)
     - [ ] `ILUMI_API_CMD_SET_RANDOM_COLOR`/`RANDOM_COLOR_SEQUENCE` (48, 38)
-    - [ ] `ILUMI_API_CMD_PING`/`PING_ECHO` (84, 85)
+    - [x] `ILUMI_API_CMD_PING`/`PING_ECHO` (84, 85)
 
 ## Phase 7: Polish & UX Details
 - [x] **Hardware Fading/Transitions**: Implement `ILUMI_API_CMD_SET_COLOR_SMOOTH` as the default in `on.py`, `off.py`, `whites.py`, and `color.py`, adding a `--no-fade` opt-out flag. Fixed fade granularity to ensure millisecond-level precision.

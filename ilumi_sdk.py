@@ -133,6 +133,8 @@ class IlumiApiCmdType:
     ILUMI_API_CMD_TREE_MESH_PROXY = 68
     ILUMI_API_CMD_GET_HARDWARE_TYPE = 70
     ILUMI_API_CMD_GET_ALARM_DATA = 75
+    ILUMI_API_CMD_PING = 84
+    ILUMI_API_CMD_PING_ECHO = 85
 
 class IlumiConfigCmdType:
     """Mapping of commands within the ILUMI_API_CMD_CONFIG type."""
@@ -178,6 +180,8 @@ class IlumiSDK:
         self._last_alarm_data: Optional[bytes] = None
         self._circadian_state: Optional[bool] = None
         self._circadian_event = asyncio.Event()
+        self._ping_event = asyncio.Event()
+        self._last_ping_payload: Optional[bytes] = None
 
     @property
     def is_connected(self) -> bool:
@@ -206,6 +210,7 @@ class IlumiSDK:
                 raise IlumiConnectionError(f"Failed to connect to {self.mac_address}: {e}")
         
         def notification_handler(sender, data: bytearray):
+            logger.debug(f"GATT Notification: {data.hex()}")
             if len(data) >= 2:
                 cmd_type = data[0]
                 
@@ -291,9 +296,13 @@ class IlumiSDK:
                 
                 elif cmd_type == IlumiApiCmdType.ILUMI_API_CMD_GET_ALARM_DATA:
                     if len(data) >= 4:
-                        # Payload starts at index 4 (standard Ilumi padding)
                         self._last_alarm_data = bytes(data[4:])
                         self._get_alarm_data_event.set()
+                
+                elif cmd_type == IlumiApiCmdType.ILUMI_API_CMD_PING_ECHO:
+                    if len(data) >= 4:
+                        self._last_ping_payload = bytes(data[4:])
+                        self._ping_event.set()
 
         await self.client.start_notify(ILUMI_API_CHAR_UUID, notification_handler)
         return self
@@ -795,9 +804,31 @@ class IlumiSDK:
         # Original SDK logic: Bulb always operates on GMT for alarms.
         # We must convert local hour/min to GMT.
         # Note: sync_time() sets the bulb to Unix UTC.
-        local_time_struct = time.localtime()
-        # Offset in seconds (negative for hours East of UTC in Python's tm_gmtoff, 
-        # but Java uses positive for West? No, let's just use timezone.utc)
+        logger.info(f"Setting daily alarm {alarm_idx} for local {hour:02d}:{minute:02d} (GMT {gmt_hour:02d}:{gmt_min:02d})...")
+        await self._send_command(header + payload)
+
+    async def ping(self, payload: bytes = b'\xde\xad\xbe\xef', timeout: float = 5.0) -> Optional[bytes]:
+        """
+        Sends a ping command with an optional payload and waits for an echo response.
+        :param payload: Data to be echoed back by the bulb.
+        :param timeout: How long to wait for the response.
+        :return: The echoed payload if successful, None otherwise.
+        """
+        self._last_ping_payload = None
+        self._ping_event.clear()
+        
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_PING)
+        logger.info(f"Sending PING to {self.mac_address} with payload: {payload.hex()}")
+        await self._send_command(header + payload)
+        
+        try:
+            await asyncio.wait_for(self._ping_event.wait(), timeout=timeout)
+            return self._last_ping_payload
+        except asyncio.TimeoutError:
+            logger.error(f"Timed out waiting for PING_ECHO from {self.mac_address}.")
+            return None
+
+    async def set_calendar_event(self, alarm_idx: int, action_idx: int, year: int, month: int, day: int, hour: int, minute: int):
         import datetime
         now_dt = datetime.datetime.now(datetime.timezone.utc)
         local_dt = now_dt.astimezone()
