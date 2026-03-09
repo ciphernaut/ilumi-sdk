@@ -23,14 +23,17 @@ async def main():
         print(f"Using existing global Mesh Network Key: {network_key}")
 
     existing_bulbs = config.get_all_bulbs()
+    # Create a normalized lookup map
+    norm_existing = {config.normalize_mac(k): (k, v) for k, v in existing_bulbs.items()}
 
     for idx, device in enumerate(ilumi_devices):
         mac = device["address"]
+        norm_mac = config.normalize_mac(mac)
         print(f"\n--- Bulb {idx+1}/{len(ilumi_devices)}: {mac} ---")
         
-        if mac in existing_bulbs:
-            existing_data = existing_bulbs[mac]
-            print(f"Already enrolled as '{existing_data.get('name')}' in group '{existing_data.get('group')}'.")
+        if norm_mac in norm_existing:
+            orig_mac, existing_data = norm_existing[norm_mac]
+            print(f"Already enrolled as '{existing_data.get('name')}' (Registered MAC: {orig_mac}).")
             re_enroll = input("Do you want to re-enroll and rename this bulb? (y/N): ").strip().lower()
             if re_enroll != 'y':
                 print("Skipping.")
@@ -66,10 +69,17 @@ async def main():
                     await sdk.set_color_fast(0, 0, 0, 0, 0)
                 else:
                     print(f"Failed to commission '{name}' (SDK commission returned false).")
-        except Exception as e:
+        except (Exception, asyncio.CancelledError) as e:
             print(f"Could not connect to {mac}: {e}")
 
     print("\nEnrollment phase complete. You can now use the wrapper scripts with --name or --group.")
+    
+    # Final cleanup for Bumble transport
+    try:
+        from bumble_sdk import shutdown_bumble
+        await shutdown_bumble()
+    except ImportError:
+        pass
 
 if __name__ == "__main__":
     asyncio.run(main())

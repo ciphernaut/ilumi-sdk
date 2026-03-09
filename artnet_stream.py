@@ -2,6 +2,7 @@ import asyncio
 import struct
 import argparse
 import config
+# XXX: harness - artnet_stream needs more comprehensive testing
 from ilumi_sdk import IlumiSDK
 
 ARTNET_PORT = 6454
@@ -82,6 +83,13 @@ async def main(targets, universe, channel, bind_ip):
             
         for sdk in protocol_instance.sdks:
             await sdk.__aexit__(None, None, None)
+            
+        # Final cleanup for Bumble transport
+        try:
+            from bumble_sdk import shutdown_bumble
+            await shutdown_bumble()
+        except ImportError:
+            pass
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Ilumi Art-Net DMX Streamer")

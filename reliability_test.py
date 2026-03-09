@@ -124,6 +124,13 @@ async def main():
     if all_stats and all_stats[0]["connected"]:
         best = all_stats[0]
         print(f"\nRECOMMENDATION: Use '{best['name']}' ({best['address']}) as your primary --proxy.")
+        
+    # Final cleanup for Bumble transport
+    try:
+        from bumble_sdk import shutdown_bumble
+        await shutdown_bumble()
+    except ImportError:
+        pass
 
 if __name__ == "__main__":
     try:

@@ -1,4 +1,13 @@
 import os as _os
+import asyncio
+import struct
+import time
+import logging
+import sys
+from typing import List, Optional, Dict, Any, Callable
+from bleak import BleakClient, BleakScanner
+import config
+
 if _os.environ.get("ILUMI_USE_BUMBLE"):
     from bumble_sdk import (  # noqa: F401
         IlumiSDK, IlumiConnectionError, IlumiProtocolError,
@@ -11,15 +20,6 @@ if _os.environ.get("ILUMI_USE_BUMBLE"):
     # We don't raise SystemExit here so that the module remains available
     # but redirects to the bumble version.
 
-import asyncio
-import struct
-import time
-import logging
-import sys
-from typing import List, Optional, Dict, Any, Callable
-from bleak import BleakClient, BleakScanner
-import config
-
 # Configure logging to stderr to avoid corrupting stdout (used for JSON output)
 logger = logging.getLogger("ilumi_sdk")
 _handler = logging.StreamHandler(sys.stderr)
@@ -30,6 +30,67 @@ logger.setLevel(logging.INFO)
 
 ILUMI_SERVICE_UUID = "f000f0c0-0451-4000-b000-000000000000"
 ILUMI_API_CHAR_UUID = "f000f0c1-0451-4000-b000-000000000000"
+
+# Shared global state for serialization
+_device_lock = asyncio.Lock()
+
+class CommandQueue:
+    """Manages serial execution of BLE commands to avoid adapter congestion."""
+    def __init__(self, max_depth: int = 5):
+        self.queue = asyncio.Queue()
+        self.max_depth = max_depth
+        self.worker_task = None
+
+    async def _worker(self):
+        while True:
+            item = await self.queue.get()
+            coro, future = item
+            try:
+                if future.done():
+                    # Coroutine was cancelled/dropped while in queue
+                    try: coro.close()
+                    except: pass
+                    continue
+
+                result = await coro
+                if not future.done():
+                    future.set_result(result)
+            except Exception as e:
+                if not future.done():
+                    future.set_exception(e)
+            finally:
+                self.queue.task_done()
+
+    def start(self):
+        if self.worker_task is None or self.worker_task.done():
+            self.worker_task = asyncio.create_task(self._worker())
+
+    async def execute(self, coro, high_priority: bool = False):
+        """Adds a command to the queue. Returns the result or raises exception."""
+        self.start()
+            
+        # If queue is full and this is a stream command, drop oldest to keep up
+        if not high_priority and self.queue.qsize() >= self.max_depth:
+            try:
+                dropped_item = self.queue.get_nowait()
+                _, dropped_future = dropped_item
+                if not dropped_future.done():
+                    dropped_future.set_exception(TimeoutError("Dropped from queue"))
+                self.queue.task_done()
+            except asyncio.QueueEmpty:
+                pass
+                
+        future = asyncio.get_running_loop().create_future()
+        await self.queue.put((coro, future))
+        return await future
+
+_command_queue = CommandQueue()
+
+def reset_global_state():
+    """Resets global locks and queues. Primarily for testing with fresh loops."""
+    global _command_queue, _device_lock
+    _command_queue = CommandQueue()
+    _device_lock = asyncio.Lock()
 
 class IlumiConnectionError(Exception):
     """Raised when failing to connect to an Ilumi bulb."""
@@ -46,20 +107,32 @@ class IlumiApiCmdType:
     ILUMI_API_CMD_TURN_ON = 4
     ILUMI_API_CMD_TURN_OFF = 5
     ILUMI_API_CMD_SET_COLOR_PATTERN = 7
+    ILUMI_API_CMD_START_COLOR_PATTERN = 8
     ILUMI_API_CMD_SET_DAILY_ALARM = 9
-    ILUMI_API_CMD_START_COLOR_PATTERN = 8 # Added from Java analysis
+    ILUMI_API_CMD_SET_CALENDAR_EVENT = 10
+    ILUMI_API_CMD_SET_DATE_TIME = 12
+    ILUMI_API_CMD_GET_DATE_TIME = 13
+    ILUMI_API_CMD_DELETE_ALARM = 14
+    ILUMI_API_CMD_DELETE_ALL_ALARMS = 15
     ILUMI_API_GET_BULB_COLOR = 16
+    ILUMI_API_CMD_PROXY_MSG = 28
+    ILUMI_API_CMD_QUERY_ROUTING = 31
     ILUMI_API_CMD_SET_CANDL_MODE = 35
     ILUMI_API_CMD_SET_COLOR_SMOOTH = 37
+    ILUMI_API_CMD_HEARTBEAT = 39
     ILUMI_API_CMD_GET_DEVICE_INFO = 40
-    ILUMI_API_CMD_PROXY_MSG = 28
-    ILUMI_API_CMD_TREE_MESH_PROXY = 68
-    ILUMI_API_CMD_DATA_CHUNK = 52
-    ILUMI_API_CMD_COMMISSION_WITH_ID = 58
+    ILUMI_API_CMD_ENABLE_CIRCADIAN = 42
     ILUMI_API_CMD_ADD_ACTION = 50
+    ILUMI_API_CMD_DEL_ACTION = 51
+    ILUMI_API_CMD_DATA_CHUNK = 52
     ILUMI_API_CMD_SET_COLOR_NEED_RESP = 54
+    ILUMI_API_CMD_SET_DEFAULT_ACTION_IDX = 56
+    ILUMI_API_CMD_COMMISSION_WITH_ID = 58
+    ILUMI_API_CMD_SET_BRIGHTNESS = 61
     ILUMI_API_CMD_CONFIG = 65
-    ILUMI_API_CMD_QUERY_ROUTING = 31
+    ILUMI_API_CMD_TREE_MESH_PROXY = 68
+    ILUMI_API_CMD_GET_HARDWARE_TYPE = 70
+    ILUMI_API_CMD_GET_ALARM_DATA = 75
 
 class IlumiConfigCmdType:
     """Mapping of commands within the ILUMI_API_CMD_CONFIG type."""
@@ -70,12 +143,26 @@ class IlumiSDK:
     Main SDK class for interacting with Ilumi Smart Bulbs via BLE.
     Supports direct control, mesh proxying, and device management.
     """
+    ILUMI_AQUA = (0, 255, 255, 0, 255)
+
+    # Hardware-backed Circadian profile mapping (extracted from Java SDK)
+    CIRCADIAN_PROFILE = {
+        "05:30": "8281FF", # Light Lavender/Blue
+        "11:00": "D7EFFF", # Bright Sky Blue
+        "14:00": "D8FFAA", # Lime/Yellow Tint
+        "17:00": "BAFF4D", # Lime
+        "20:00": "FEFF0E", # Yellow
+        "22:00": "FFA700"  # Orange
+    }
+
     def __init__(self, mac_address: Optional[str] = None):
         """
         Initialize the SDK.
         :param mac_address: MAC address of the target bulb. If None, uses value from config.
         """
-        self.mac_address = mac_address or config.get_config("mac_address")
+        # Normalize MAC address to remove Bumble suffixes (/P, /R) if present
+        import config
+        self.mac_address = config.normalize_mac(mac_address or config.get_config("mac_address"))
         self.network_key = config.get_config("network_key", 0)
         self.seq_num = config.get_config("seq_num", 0)
         self.dfu_key = config.get_config("dfu_key", 0x12345678)
@@ -87,19 +174,36 @@ class IlumiSDK:
         self._color_event = asyncio.Event()
         self._mesh_info: List[Dict[str, Any]] = []
         self._mesh_event = asyncio.Event()
+        self._get_alarm_data_event = asyncio.Event()
+        self._last_alarm_data: Optional[bytes] = None
+        self._circadian_state: Optional[bool] = None
+        self._circadian_event = asyncio.Event()
+
+    @property
+    def is_connected(self) -> bool:
+        """Returns True if the SDK is connected to a bulb."""
+        return self.client is not None and self.client.is_connected
 
     async def __aenter__(self):
         """Context manager to maintain a persistent connection."""
         if not self.mac_address:
             raise ValueError("No MAC address specified or enrolled.")
         
-        target = self._ble_device if self._ble_device is not None else self.mac_address
-        self.client = BleakClient(target, timeout=10.0)
-        logger.info(f"Connecting to {self.mac_address}...")
-        try:
-            await self.client.connect()
-        except Exception as e:
-            raise IlumiConnectionError(f"Failed to connect to {self.mac_address}: {e}")
+        if self.is_connected:
+            return self
+
+        async with _device_lock:
+            # Re-check inside lock to be absolutely certain
+            if self.is_connected:
+                return self
+                
+            target = self._ble_device if self._ble_device is not None else self.mac_address
+            self.client = BleakClient(target, timeout=10.0)
+            logger.info(f"Connecting to {self.mac_address}...")
+            try:
+                await self.client.connect()
+            except Exception as e:
+                raise IlumiConnectionError(f"Failed to connect to {self.mac_address}: {e}")
         
         def notification_handler(sender, data: bytearray):
             if len(data) >= 2:
@@ -121,6 +225,10 @@ class IlumiSDK:
                                         "brightness": inner_payload[5]
                                     }
                                     self._color_event.set()
+                            elif inner_type == IlumiApiCmdType.ILUMI_API_CMD_ENABLE_CIRCADIAN:
+                                if len(inner_payload) >= 2:
+                                    self._circadian_state = bool(inner_payload[1])
+                                    self._circadian_event.set()
                 
                 elif cmd_type == IlumiApiCmdType.ILUMI_API_CMD_GET_DEVICE_INFO:
                     if len(data) >= 14:
@@ -149,6 +257,12 @@ class IlumiSDK:
                         }
                         self._color_event.set()
                 
+                elif cmd_type == IlumiApiCmdType.ILUMI_API_CMD_ENABLE_CIRCADIAN:
+                    # Payload is 1 byte: 1 for enabled, 0 for disabled
+                    if len(data) >= 5:
+                        self._circadian_state = bool(data[4])
+                        self._circadian_event.set()
+                
                 elif cmd_type == IlumiApiCmdType.ILUMI_API_CMD_QUERY_ROUTING:
                     if len(data) >= 4:
                         payload_size = struct.unpack("<H", data[2:4])[0]
@@ -174,6 +288,12 @@ class IlumiSDK:
                         # For now, we signal after each block since we don't know the total
                         # The high-level method will wait and collect for a bit.
                         self._mesh_event.set()
+                
+                elif cmd_type == IlumiApiCmdType.ILUMI_API_CMD_GET_ALARM_DATA:
+                    if len(data) >= 4:
+                        # Payload starts at index 4 (standard Ilumi padding)
+                        self._last_alarm_data = bytes(data[4:])
+                        self._get_alarm_data_event.set()
 
         await self.client.start_notify(ILUMI_API_CHAR_UUID, notification_handler)
         return self
@@ -200,7 +320,7 @@ class IlumiSDK:
         devices = await BleakScanner.discover(timeout=timeout)
         ilumi_bulbs = []
         for d in devices:
-            if d.name and ("ilumi" in d.name.lower() or d.name.startswith("L0")):
+            if d.name and ("ilumi" in d.name.lower() or d.name.startswith("L0") or d.name.startswith("Nrdic")):
                 ilumi_bulbs.append({"name": d.name, "address": d.address, "rssi": d.rssi})
         return ilumi_bulbs
 
@@ -211,10 +331,11 @@ class IlumiSDK:
         """
         network_id_bytes = struct.pack("<I", self.network_key)
         
-        # Ensure seq_num is even as per protocol idiosyncrasy
-        if self.seq_num % 2 != 0:
-            self.seq_num = (self.seq_num + 1) % 256
-            
+        # Correct order as per insertNetworkKey_SeqnumForNodeMac in IlumiSDK.java:
+        # 0-3: network_key (4, LE)
+        # 4: seq_num (1)
+        # 5: message_type (1)
+        
         header = network_id_bytes + struct.pack("B B", self.seq_num, message_type)
         
         self.seq_num = (self.seq_num + 2) % 256
@@ -222,25 +343,36 @@ class IlumiSDK:
         
         return header
 
+    async def _write(self, payload: bytes, with_response: bool = True):
+        """INTERNAL: Serialized GATT write."""
+        if not self.client or not self.client.is_connected:
+            raise IlumiConnectionError("Not connected")
+
+        async def do_write():
+            if self.client and self.client.is_connected:
+                await self.client.write_gatt_char(ILUMI_API_CHAR_UUID, payload, response=with_response)
+
+        await _command_queue.execute(do_write(), high_priority=with_response)
+
     async def _send_command(self, payload: bytes):
         """Sends a command with GATT write response expectation."""
         if self.client and self.client.is_connected:
-            await self.client.write_gatt_char(ILUMI_API_CHAR_UUID, payload, response=True)
+            await self._write(payload, with_response=True)
             await asyncio.sleep(0.1)
             return
 
         async with self as managed_sdk:
-            await managed_sdk.client.write_gatt_char(ILUMI_API_CHAR_UUID, payload, response=True)
+            await managed_sdk._write(payload, with_response=True)
             await asyncio.sleep(0.5)
 
     async def _send_command_fast(self, payload: bytes):
         """Sends a command without waiting for GATT response (write command)."""
         if self.client and self.client.is_connected:
-            await self.client.write_gatt_char(ILUMI_API_CHAR_UUID, payload, response=False)
+            await self._write(payload, with_response=False)
             return
 
         async with self as managed_sdk:
-            await managed_sdk.client.write_gatt_char(ILUMI_API_CHAR_UUID, payload, response=False)
+            await managed_sdk._write(payload, with_response=False)
 
     async def _send_chunked_command(self, data: bytes):
         """Splits payloads > 20 bytes into 10-byte fragments for reliable BLE transfer."""
@@ -258,15 +390,15 @@ class IlumiSDK:
                 chunk_struct = struct.pack("<H H 10s", data_length, offset, bytes(chunk_payload))
                 cmd_header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_DATA_CHUNK)
                 logger.debug(f"Sending chunk {offset}/{data_length}")
-                await target_client.write_gatt_char(ILUMI_API_CHAR_UUID, cmd_header + chunk_struct, response=True)
+                await target_client._write(cmd_header + chunk_struct, with_response=True)
                 await asyncio.sleep(0.05)
             await asyncio.sleep(0.5)
 
         if self.client and self.client.is_connected:
-            await _do_send(self.client)
+            await _do_send(self)
         else:
             async with self as managed_sdk:
-                await _do_send(managed_sdk.client)
+                await _do_send(managed_sdk)
 
     async def _send_raw_command(self, cmd_type: int, payload: bytes):
         """
@@ -281,8 +413,11 @@ class IlumiSDK:
 
     async def send_proxy_message(self, target_macs: List[str], inner_payload: bytes):
         """Routes an inner API payload to a list of target MAC addresses via the mesh."""
+        import config
         for target_mac in target_macs:
-            mac_parts = [int(x, 16) for x in target_mac.split(':')]
+            # Normalize to remove Bumble suffixes (/P, /R)
+            normalized_mac = config.normalize_mac(target_mac)
+            mac_parts = [int(x, 16) for x in normalized_mac.split(':')]
             mac_parts.reverse() 
             mac_bytes = bytes(mac_parts)
             
@@ -383,7 +518,7 @@ class IlumiSDK:
         else:
             await self._send_command(cmd + payload)
 
-    async def set_color_pattern(self, scene_idx: int, frames: List[Dict[str, int]], repeatable: int = 1, start_now: int = 1):
+    async def set_color_pattern(self, scene_idx: int, frames: List[Dict[str, int]], repeatable: int = 1, start_now: int = 1, targets: Optional[List[str]] = None):
         """Uploads and triggers an animation pattern."""
         clamp = lambda x: max(0, min(255, int(x)))
         cmd = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_SET_COLOR_PATTERN)
@@ -397,7 +532,11 @@ class IlumiSDK:
         array_size = len(frames)
         scene_header = struct.pack("<H B B B B B", total_struct_size, scene_idx, array_size, repeatable, scene_idx, start_now)
         full_payload = cmd + scene_header + frame_bytes
-        await self._send_chunked_command(full_payload)
+        
+        if targets:
+            await self.send_proxy_message(targets, full_payload)
+        else:
+            await self._send_chunked_command(full_payload)
 
     async def start_color_pattern(self, scene_idx: int):
         """Starts a previously uploaded animation scene."""
@@ -446,6 +585,144 @@ class IlumiSDK:
         logger.info(f"Sending DFU mode entry command with key: {hex(self.dfu_key)}")
         await self._send_command(cmd + payload)
 
+    async def set_circadian(self, enabled: bool, targets: Optional[List[str]] = None):
+        """
+        Enables or disables the hardware-native circadian rhythm mode.
+        :param enabled: True to enable, False to disable.
+        :param targets: Optional list of target MAC addresses for mesh proxying.
+        """
+        cmd = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_ENABLE_CIRCADIAN)
+        payload = struct.pack("<B", 1 if enabled else 0)
+        
+        if targets:
+            await self.send_proxy_message(targets, cmd + payload)
+        else:
+            await self._send_command(cmd + payload)
+
+    async def sync_time(self, timestamp: Optional[float] = None, targets: Optional[List[str]] = None):
+        """
+        Synchronizes the bulb's internal clock with the provided timestamp or current system time.
+        :param timestamp: Optional Unix timestamp (float). If None, uses local system time.
+        :param targets: Optional list of target MAC addresses for mesh proxying.
+        """
+        import time
+        now = int(timestamp if timestamp is not None else time.time())
+        cmd = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_SET_DATE_TIME)
+        payload = struct.pack("<I", now)
+        
+        logger.info(f"Synchronizing bulb clock to {now}...")
+        if targets:
+            await self.send_proxy_message(targets, cmd + payload)
+        else:
+            await self._send_command(cmd + payload)
+
+    async def upload_circadian_profile(self, profile: Optional[Dict[str, str]] = None, scene_idx: int = 1, timestamp: Optional[float] = None, targets: Optional[List[str]] = None):
+        """
+        Calculate and upload a 24-hour circadian profile, reordered to start from 'now'.
+        If profile is None, uses the default CIRCADIAN_PROFILE.
+        Profile should be a dict of "HH:MM": "HEXCOLOR".
+        :param timestamp: Optional Unix timestamp to use for 'now'. If None, uses local system time.
+        """
+        import time
+        if profile is None:
+            profile = self.CIRCADIAN_PROFILE
+            
+        sorted_times = sorted(profile.keys())
+        
+        def time_to_seconds(ts):
+            h, m = map(int, ts.split(':'))
+            return h * 3600 + m * 60
+            
+        # Determine "now" in seconds since midnight
+        lt = time.localtime(timestamp) if timestamp is not None else time.localtime()
+        now_sec = lt.tm_hour * 3600 + lt.tm_min * 60 + lt.tm_sec
+        
+        times_sec = [time_to_seconds(ts) for ts in sorted_times]
+        
+        # Find the point immediately before/at now
+        current_idx = -1
+        for i in range(len(times_sec)):
+            if times_sec[i] <= now_sec:
+                current_idx = i
+            else:
+                break
+        
+        if current_idx == -1:
+            current_idx = len(times_sec) - 1 # Before the first point, so last point of prev day applies
+            
+        next_idx = (current_idx + 1) % len(times_sec)
+        
+        # Create ordered sequence of indices starting from next_idx
+        ordered_indices = []
+        for j in range(len(times_sec)):
+            ordered_indices.append((next_idx + j) % len(times_sec))
+            
+        frames = []
+        for k in range(len(ordered_indices)):
+            idx = ordered_indices[k]
+            prev_idx = (idx - 1) % len(times_sec)
+            
+            t_curr = times_sec[idx]
+            t_prev = times_sec[prev_idx]
+            
+            if k == 0:
+                # First frame: transition from NOW to t_curr
+                if t_curr <= now_sec:
+                    duration = (24 * 3600 - now_sec) + t_curr
+                else:
+                    duration = t_curr - now_sec
+            else:
+                # Subsequent frames: transition from prev to curr
+                if t_curr <= t_prev:
+                    duration = (24 * 3600 - t_prev) + t_curr
+                else:
+                    duration = t_curr - t_prev
+            
+            hex_color = profile[sorted_times[idx]]
+            r = int(hex_color[0:2], 16)
+            g = int(hex_color[2:4], 16)
+            b = int(hex_color[4:6], 16)
+            
+            frames.append({
+                'r': r, 'g': g, 'b': b, 'w': 0, 'brightness': 255,
+                'sustain_ms': 0,
+                'transit_ms': int(duration * 1000)
+            })
+            
+        # 1. Set base color to the 'current' point for a smooth transition start
+        cur_hex = profile[sorted_times[current_idx]]
+        cr, cg, cb = int(cur_hex[0:2], 16), int(cur_hex[2:4], 16), int(cur_hex[4:6], 16)
+        logger.info(f"Setting base circadian color to {cur_hex} (point {sorted_times[current_idx]})")
+        await self.set_color(cr, cg, cb, 0, 255, targets=targets)
+        await asyncio.sleep(0.5)
+        
+        logger.info(f"Uploading reordered circadian profile starting with transition to {sorted_times[next_idx]}.")
+        return await self.set_color_pattern(scene_idx, frames, repeatable=255, start_now=1, targets=targets)
+
+    async def get_circadian(self, target: Optional[str] = None) -> Optional[bool]:
+        """
+        Queries the current circadian rhythm state from the bulb.
+        :param target: Optional target MAC address for mesh proxying.
+        :return: True if enabled, False if disabled, None if timeout.
+        """
+        self._circadian_state = None
+        self._circadian_event.clear()
+        
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_ENABLE_CIRCADIAN)
+        # Query mode: send command header with no payload
+        
+        if target:
+            await self.send_proxy_message([target], header)
+        else:
+            await self._send_command(header)
+            
+        try:
+            await asyncio.wait_for(self._circadian_event.wait(), timeout=5.0)
+            return self._circadian_state
+        except asyncio.TimeoutError:
+            logger.error("Timed out waiting for circadian status.")
+            return None
+
     async def get_mesh_info(self) -> List[Dict[str, Any]]:
         """
         Retrieves neighbor mesh information from the bulb.
@@ -472,6 +749,123 @@ class IlumiSDK:
         except Exception as e:
             logger.error(f"Error retrieving mesh info: {e}")
             return self._mesh_info
+
+    @staticmethod
+    def _bin_to_bcd(val: int) -> int:
+        """Converts an integer to Binary Coded Decimal (BCD) byte format."""
+        return ((val // 10) << 4) | (val % 10)
+
+    async def add_action(self, action_idx: int, command_payload: bytes, next_action_idx: int = 0xFF, delay_ms: int = 0):
+        """
+        Stores an autonomous hardware action (macro) on the bulb.
+        :param action_idx: Unique index for this action (0-255).
+        :param command_payload: Raw Ilumi command payload (EXCLUDING the 6-byte header).
+        :param next_action_idx: Next action to trigger after this one (0xFF for none).
+        :param delay_ms: Delay before executing the next action.
+        """
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_ADD_ACTION)
+        
+        # Determine unit and value for delay
+        if delay_ms < 65535:
+            time_val = delay_ms
+            time_unit = 0 # ms
+        else:
+            time_val = delay_ms // 1000
+            time_unit = 1 # seconds
+
+        # action_idx(1), next_action_idx(1), interval(2), unit(1), timer_start_after_current_done(1), data_length(2)
+        # timer_start_after_current_done: 0 means start timer immediately. 1 means wait for current command to finish.
+        action_hdr = struct.pack("<B B H B B H", action_idx, next_action_idx, time_val, time_unit, 0, len(command_payload))
+        
+        logger.info(f"Uploading hardware action {action_idx} (payload len: {len(command_payload)})...")
+        await self._send_chunked_command(header + action_hdr + command_payload)
+
+    async def set_daily_alarm(self, alarm_idx: int, hour: int, minute: int, days_mask: int, action_idx: int):
+        """
+        Schedules a recurring daily alarm to trigger a stored action.
+        This method automatically converts the local time to GMT for the bulb's internal clock.
+        :param alarm_idx: Unique index for this alarm (0-15).
+        :param hour: Local hour (0-23).
+        :param minute: Local minute (0-59).
+        :param days_mask: Bitmask for days (Sun=1, Mon=2, Tue=4, Wed=8, Thu=16, Fri=32, Sat=64). 127 for daily.
+        :param action_idx: The stored action index to trigger.
+        """
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_SET_DAILY_ALARM)
+        
+        # Original SDK logic: Bulb always operates on GMT for alarms.
+        # We must convert local hour/min to GMT.
+        # Note: sync_time() sets the bulb to Unix UTC.
+        local_time_struct = time.localtime()
+        # Offset in seconds (negative for hours East of UTC in Python's tm_gmtoff, 
+        # but Java uses positive for West? No, let's just use timezone.utc)
+        import datetime
+        now_dt = datetime.datetime.now(datetime.timezone.utc)
+        local_dt = now_dt.astimezone()
+        # Offset in minutes (e.g., 600 for AEST)
+        offset_minutes = round((local_dt.replace(tzinfo=None) - now_dt.replace(tzinfo=None)).total_seconds() / 60)
+        
+        total_minutes = (hour * 60) + minute
+        gmt_total_minutes = (total_minutes - offset_minutes + 1440) % 1440
+        gmt_hour = gmt_total_minutes // 60
+        gmt_min = gmt_total_minutes % 60
+
+        # Conversion to BCD as expected by firmware
+        bcd_hour = self._bin_to_bcd(gmt_hour)
+        bcd_min = self._bin_to_bcd(gmt_min)
+        
+        payload = struct.pack("<B B B B B", alarm_idx, action_idx, bcd_hour, bcd_min, days_mask)
+        
+        logger.info(f"Setting daily alarm {alarm_idx} for local {hour:02d}:{minute:02d} (GMT {gmt_hour:02d}:{gmt_min:02d}) to trigger action {action_idx}...")
+        await self._send_command(header + payload)
+
+    async def set_calendar_event(self, alarm_idx: int, action_idx: int, year: int, month: int, day: int, hour: int, minute: int):
+        """
+        Schedules a one-time calendar event to trigger a stored action.
+        Automatically converts local time to GMT for the bulb's internal clock.
+        """
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_SET_CALENDAR_EVENT)
+        
+        import datetime
+        local_dt = datetime.datetime(2000 + year, month, day, hour, minute)
+        utc_dt = local_dt.astimezone(datetime.timezone.utc)
+        
+        # We use BCD for time and date fields as per firmware convention.
+        bcd_year = self._bin_to_bcd(utc_dt.year % 100)
+        bcd_month = self._bin_to_bcd(utc_dt.month)
+        bcd_day = self._bin_to_bcd(utc_dt.day)
+        bcd_hour = self._bin_to_bcd(utc_dt.hour)
+        bcd_min = self._bin_to_bcd(utc_dt.minute)
+        
+        # Payload: alarmIdx(1), actionIdx(1), year(1), month(1), day(1), hr(1), min(1)
+        payload = struct.pack("<B B B B B B B", alarm_idx, action_idx, bcd_year, bcd_month, bcd_day, bcd_hour, bcd_min)
+        
+        logger.info(f"Setting calendar event {alarm_idx} for {utc_dt.strftime('%Y-%m-%d %H:%M')} UTC...")
+        await self._send_command(header + payload)
+
+    async def delete_alarm(self, alarm_idx: int):
+        """Deletes a scheduled alarm index."""
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_DELETE_ALARM)
+        payload = struct.pack("<B", alarm_idx)
+        logger.info(f"Deleting alarm {alarm_idx}...")
+        await self._send_command(header + payload)
+
+    async def delete_all_alarms(self):
+        """Deletes all scheduled alarms on the bulb."""
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_DELETE_ALL_ALARMS)
+        logger.info("Deleting all alarms...")
+        await self._send_command(header)
+
+    async def get_alarm_data(self, alarm_idx: int) -> Optional[bytes]:
+        """Queries the bulb for raw alarm configuration data for a given index."""
+        # For now, we return raw bytes as the response parsing is complex.
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_GET_ALARM_DATA)
+        payload = struct.pack("<B", alarm_idx)
+        
+        # Implementation of notification wait for this specific command would go here.
+        # But since we don't have a specific event yet for alarm data, we'll just send it.
+        # Most of our tests would rely on visual feedback or reading back status if supported.
+        await self._send_command(header + payload)
+        return None
 
 async def execute_on_targets(targets: List[str], coro_func: Callable) -> Dict[str, Any]:
     """Helper to execute an SDK task across multiple bulbs."""

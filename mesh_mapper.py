@@ -382,5 +382,12 @@ async def main():
     print("Calculating path-weighted layout...")
     m.calculate_layout(); m.generate_svg()
     if args.matrix: m.print_matrix()
+    
+    # Final cleanup for Bumble transport
+    try:
+        from bumble_sdk import shutdown_bumble
+        await shutdown_bumble()
+    except ImportError:
+        pass
 
 if __name__ == "__main__": asyncio.run(main())

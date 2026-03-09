@@ -57,6 +57,13 @@ Every control script supports the following routing arguments:
   # Set the whole house to red at very low brightness (25/255)
   python3 color.py 255 0 0 0 25 --all
   ```
+  
+- **Unenroll Device (Factory Reset):**
+  If you need to completely remove a bulb from your network and reset it to factory defaults, use `unenroll.py`. 
+  **Warning**: This is disruptive and requires re-running `enroll.py`.
+  ```bash
+  python3 unenroll.py --name kitchen
+  ```
 
 - **Predefined Whites & Effects:**
   Use `whites.py` for static profiles and `effects.py` for animations. Both scripts will output a **JSON array** of available modes if called without arguments.
@@ -73,6 +80,20 @@ Every control script supports the following routing arguments:
   
   # Play the fireworks animation in the lounge
   python3 effects.py fireworks --group lounge
+  ```
+
+- **Hardware-Backed Circadian Rhythm:**
+  The bulbs can automatically adjust their color temperature over the course of a day using their internal Real-Time Clock (RTC).
+  
+  ```bash
+  # Synchronize the bulb's clock with your computer
+  python3 circadian.py sync --all
+  
+  # Enable circadian mode
+  python3 circadian.py on --all
+  
+  # Check if circadian mode is active
+  python3 circadian.py status --name kitchen
   ```
 
 ### Meltdown Effects (Custom)
@@ -143,7 +164,9 @@ Wait... which bulb is best for `--proxy`?
     2.  **Explicit Start**: `effects.py` handles both uploading and triggering the animation pattern.
 
 ## Permissions & Debugging
-Refer to `ENABLEMENT.md` for Bluetooth permission setup and HCI snoop log gathering instructions. For protocol captures, you can uncomment the "observing mode" loop in `effects.py` to keep the connection alive.
+Refer to `ENABLEMENT.md` for Bluetooth permission setup and `PROTOCOL.md` for technical details on the GATT protocol. For developer contribution guidelines, see `CONTRIBUTING.md`.
+
+For protocol captures, you can uncomment the "observing mode" loop in `effects.py` to keep the connection alive.
 
 ## License & Disclaimer
 
