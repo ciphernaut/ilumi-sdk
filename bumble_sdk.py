@@ -121,6 +121,12 @@ class IlumiApiCmdType:
     ILUMI_API_CMD_DELETE_COLOR_PATTERN = 18
     ILUMI_API_CMD_DELETE_ALL_COLOR_PATTERNS = 19
     ILUMI_API_CMD_CLEAR_ALL_USER_DATA = 20
+    ILUMI_API_CMD_SET_NODE_ID = 21
+    ILUMI_API_CMD_GET_NODE_ID = 22
+    ILUMI_API_CMD_ADD_GROUP_ID = 23
+    ILUMI_API_CMD_DEL_GROUP_ID = 24
+    ILUMI_API_CMD_GET_GROUP_IDS = 25
+    ILUMI_API_CMD_CLEAR_ALL_GROUP_IDS = 26
     ILUMI_API_CMD_PROXY_MSG = 28
     ILUMI_API_CMD_QUERY_ROUTING = 31
     ILUMI_API_CMD_SET_CANDL_MODE = 35
@@ -216,6 +222,10 @@ class IlumiSDK:
         self._mesh_event = asyncio.Event()
         self._ping_event = asyncio.Event()
         self._last_ping_payload: Optional[bytes] = None
+        self._last_node_id: Optional[int] = None
+        self._node_id_event = asyncio.Event()
+        self._last_group_ids: List[int] = []
+        self._group_ids_event = asyncio.Event()
 
     # ------------------------------------------------------------------
     # Context manager
@@ -381,6 +391,22 @@ class IlumiSDK:
             if len(data) >= 4:
                 self._last_ping_payload = bytes(data[4:])
                 self._ping_event.set()
+
+        elif cmd_type == IlumiApiCmdType.ILUMI_API_CMD_GET_NODE_ID:
+            if len(data) >= 6:
+                self._last_node_id = struct.unpack("<H", data[4:6])[0]
+                self._node_id_event.set()
+
+        elif cmd_type == IlumiApiCmdType.ILUMI_API_CMD_GET_GROUP_IDS:
+            if len(data) >= 4:
+                payload_size = struct.unpack("<H", data[2:4])[0]
+                payload = data[4:4+payload_size]
+                self._last_group_ids = []
+                for i in range(0, len(payload), 2):
+                    if i + 2 <= len(payload):
+                        group_id = struct.unpack("<H", payload[i:i+2])[0]
+                        self._last_group_ids.append(group_id)
+                self._group_ids_event.set()
 
         elif cmd_type == IlumiApiCmdType.ILUMI_API_CMD_GET_DEVICE_INFO:
             if len(data) >= 14:
@@ -751,6 +777,56 @@ class IlumiSDK:
         header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_DELETE_COLOR_PATTERN)
         payload = struct.pack("<B", scene_idx)
         await self._send_command(header + payload)
+
+    async def get_node_id(self) -> Optional[int]:
+        """Queries the bulb's current Node ID."""
+        self._last_node_id = None
+        self._node_id_event.clear()
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_GET_NODE_ID)
+        await self._send_command(header)
+        try:
+            await asyncio.wait_for(self._node_id_event.wait(), timeout=5.0)
+            return self._last_node_id
+        except asyncio.TimeoutError:
+            logger.error("Timed out waiting for Node ID.")
+            return None
+
+    async def set_node_id(self, node_id: int):
+        """Sets a new Node ID for the bulb."""
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_SET_NODE_ID)
+        payload = struct.pack("<H", node_id)
+        await self._send_command(header + payload)
+
+    async def get_group_ids(self) -> List[int]:
+        """Queries the list of group IDs this bulb belongs to."""
+        self._last_group_ids = []
+        self._group_ids_event.clear()
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_GET_GROUP_IDS)
+        await self._send_command(header)
+        try:
+            await asyncio.wait_for(self._group_ids_event.wait(), timeout=5.0)
+            return self._last_group_ids
+        except asyncio.TimeoutError:
+            logger.error("Timed out waiting for Group IDs.")
+            return []
+
+    async def add_group_id(self, group_id: int):
+        """Adds this bulb to a specific group."""
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_ADD_GROUP_ID)
+        payload = struct.pack("<H", group_id)
+        await self._send_command(header + payload)
+
+    async def del_group_id(self, group_id: int):
+        """Removes this bulb from a specific group."""
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_DEL_GROUP_ID)
+        payload = struct.pack("<H", group_id)
+        await self._send_command(header + payload)
+
+    async def clear_all_group_ids(self):
+        """Removes this bulb from all groups."""
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_CLEAR_ALL_GROUP_IDS)
+        await self._send_command(header)
+
 
     async def delete_all_color_patterns(self):
         """Deletes all custom color patterns."""

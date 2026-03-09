@@ -82,6 +82,32 @@ Deletes all stored color patterns on the bulb.
 Factory resets the bulb and clears enrollment (Network Key, Node ID, etc.).
 - **Payload**: None
 
+### 21: SET_NODE_ID
+Assigns a new 16-bit Node ID to the bulb.
+- **Payload (2 bytes)**: `node_id` (`uint16_le`)
+
+### 22: GET_NODE_ID
+Queries the bulb's current Node ID.
+- **Notification Response (2 bytes payload)**: `node_id` (`uint16_le`) at offset 4.
+
+### 23: ADD_GROUP_ID
+Adds the bulb to a 16-bit group.
+- **Payload (2 bytes)**: `group_id` (`uint16_le`)
+
+### 24: DEL_GROUP_ID
+Removes the bulb from a specific group.
+- **Payload (2 bytes)**: `group_id` (`uint16_le`)
+
+### 25: GET_GROUP_IDS
+Retrieves all group IDs this bulb belongs to.
+- **Notification Response**:
+  - `payload_size` (`uint16_le`) at offset 2.
+  - `group_ids` (List of `uint16_le`) starting at offset 4.
+
+### 26: CLEAR_ALL_GROUP_IDS
+Removes the bulb from all assigned groups.
+- **Payload**: None
+
 ### 38: RANDOM_COLOR_SEQUENCE
 Starts a continuous sequence of random colors.
 - **Payload**: None

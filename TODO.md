@@ -17,10 +17,10 @@ The following features exist in the original Ilumi Android App's BLE GATT protoc
     - [x] `ILUMI_API_CMD_DELETE_COLOR_PATTERN` (18)
     - [x] `ILUMI_API_CMD_DELETE_ALL_COLOR_PATTERNS` (19)
     - [x] `ILUMI_API_CMD_CLEAR_ALL_USER_DATA` (20)
-- [ ] **Node & Group Management**:
-    - [ ] `ILUMI_API_CMD_SET_NODE_ID`/`GET_NODE_ID` (21, 22)
-    - [ ] `ILUMI_API_CMD_ADD_GROUP_ID`/`DEL_GROUP_ID`/`GET_GROUP_IDS` (23, 24, 25)
-    - [ ] `ILUMI_API_CMD_CLEAR_ALL_GROUP_IDS` (26)
+- [x] **Node & Group Management**:
+    - [x] `ILUMI_API_CMD_SET_NODE_ID`/`GET_NODE_ID` (21, 22)
+    - [x] `ILUMI_API_CMD_ADD_GROUP_ID`/`DEL_GROUP_ID`/`GET_GROUP_IDS` (23, 24, 25)
+    - [x] `ILUMI_API_CMD_CLEAR_ALL_GROUP_IDS` (26)
 - [ ] **Mesh & Routing Extensions**:
     - [ ] `ILUMI_API_CMD_ADD_ROUTING_ENTRY`/`CLEAR_ROUTING` (29, 30)
     - [ ] `ILUMI_API_CMD_TREE_MESH` (41)
