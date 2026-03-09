@@ -70,3 +70,57 @@ Queries the bulb for hardware/firmware metadata.
   - `model_number` (`uint8`)
   - `reset_reason` (`uint16_le`)
   - `ble_stack_version` (`uint16_le`)
+### 18: DELETE_COLOR_PATTERN
+Deletes a specific color pattern index.
+- **Payload (1 byte)**: `scene_idx` (`uint8`)
+
+### 19: DELETE_ALL_COLOR_PATTERNS
+Deletes all stored color patterns on the bulb.
+- **Payload**: None
+
+### 20: CLEAR_ALL_USER_DATA
+Factory resets the bulb and clears enrollment (Network Key, Node ID, etc.).
+- **Payload**: None
+
+### 21: SET_NODE_ID
+Assigns a new 16-bit Node ID to the bulb.
+- **Payload (2 bytes)**: `node_id` (`uint16_le`)
+
+### 22: GET_NODE_ID
+Queries the bulb's current Node ID.
+- **Notification Response (2 bytes payload)**: `node_id` (`uint16_le`) at offset 4.
+
+### 23: ADD_GROUP_ID
+Adds the bulb to a 16-bit group.
+- **Payload (2 bytes)**: `group_id` (`uint16_le`)
+
+### 24: DEL_GROUP_ID
+Removes the bulb from a specific group.
+- **Payload (2 bytes)**: `group_id` (`uint16_le`)
+
+### 25: GET_GROUP_IDS
+Retrieves all group IDs this bulb belongs to.
+- **Notification Response**:
+  - `payload_size` (`uint16_le`) at offset 2.
+  - `group_ids` (List of `uint16_le`) starting at offset 4.
+
+### 26: CLEAR_ALL_GROUP_IDS
+Removes the bulb from all assigned groups.
+- **Payload**: None
+
+### 38: RANDOM_COLOR_SEQUENCE
+Starts a continuous sequence of random colors.
+- **Payload**: None
+- **Characteristic**: Hardware-defined slow transition (approx. every **10 seconds**).
+
+### 48: SET_RANDOM_COLOR
+Sets the bulb to a single random color.
+- **Payload**: None
+
+### 84: PING
+Sends a heartbeat to the bulb to check connectivity and latency.
+- **Payload**: Variable (The payload will be echoed back in the response).
+
+### 85: PING_ECHO
+The response sent by the bulb to a PING command.
+- **Notification Response**: Contains the exact payload sent in the PING command.

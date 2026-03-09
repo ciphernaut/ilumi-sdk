@@ -57,6 +57,17 @@ Every control script supports the following routing arguments:
   # Set the whole house to red at very low brightness (25/255)
   python3 color.py 255 0 0 0 25 --all
   ```
+
+- **Random Color Modes:**
+  Trigger instant random colors or continuous cycling.
+  ```bash
+  # Set a single random color
+  python3 color.py random --all
+  
+  # Start a continuous random color sequence
+  # Note: 10s hardware-hardcoded transition interval
+  python3 color.py random_sequence --all
+  ```
   
 - **Unenroll Device (Factory Reset):**
   If you need to completely remove a bulb from your network and reset it to factory defaults, use `unenroll.py`. 
@@ -156,6 +167,21 @@ Wait... which bulb is best for `--proxy`?
 
 > [!TIP]
 > Use `python3 pyvis_mapper.py --load mesh_data.json` to instantly regenerate the map after renaming bulbs in `ilumi_config.json` without needing to re-scan the mesh!
+
+## Node & Group Management
+
+The SDK provides programmatic access to the bulb's internal network identity and group memberships.
+
+- **Querying Identity**:
+  - `await sdk.get_node_id()`: Returns the current 16-bit Node ID.
+  - `await sdk.get_group_ids()`: Returns a list of all assigned 16-bit Group IDs.
+- **Modifying State**:
+  - `await sdk.set_node_id(node_id)`: Directly sets the Node ID (Use with caution).
+  - `await sdk.add_group_id(group_id)`: Adds the bulb to a group.
+  - `await sdk.del_group_id(group_id)`: Removes the bulb from a group.
+  - `await sdk.clear_all_group_ids()`: Wipes all group memberships.
+
+*Note: These methods are currently internal to the `IlumiSDK` class and are primarily used for system integration and advanced clustering.*
 
 ## Troubleshooting
 1.  **Bumble USB Permissions**: If using the Bumble backend and you see `LIBUSB_ERROR_ACCESS`, refer to the [Bumble Bluetooth Setup Guide](docs/BUMBLE_SETUP.md).

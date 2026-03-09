@@ -118,13 +118,24 @@ class IlumiApiCmdType:
     ILUMI_API_CMD_DELETE_ALARM = 14
     ILUMI_API_CMD_DELETE_ALL_ALARMS = 15
     ILUMI_API_GET_BULB_COLOR = 16
+    ILUMI_API_CMD_DELETE_COLOR_PATTERN = 18
+    ILUMI_API_CMD_DELETE_ALL_COLOR_PATTERNS = 19
+    ILUMI_API_CMD_CLEAR_ALL_USER_DATA = 20
+    ILUMI_API_CMD_SET_NODE_ID = 21
+    ILUMI_API_CMD_GET_NODE_ID = 22
+    ILUMI_API_CMD_ADD_GROUP_ID = 23
+    ILUMI_API_CMD_DEL_GROUP_ID = 24
+    ILUMI_API_CMD_GET_GROUP_IDS = 25
+    ILUMI_API_CMD_CLEAR_ALL_GROUP_IDS = 26
     ILUMI_API_CMD_PROXY_MSG = 28
     ILUMI_API_CMD_QUERY_ROUTING = 31
     ILUMI_API_CMD_SET_CANDL_MODE = 35
     ILUMI_API_CMD_SET_COLOR_SMOOTH = 37
+    ILUMI_API_CMD_RANDOM_COLOR_SEQUENCE = 38
     ILUMI_API_CMD_HEARTBEAT = 39
     ILUMI_API_CMD_GET_DEVICE_INFO = 40
     ILUMI_API_CMD_ENABLE_CIRCADIAN = 42
+    ILUMI_API_CMD_SET_RANDOM_COLOR = 48
     ILUMI_API_CMD_ADD_ACTION = 50
     ILUMI_API_CMD_DEL_ACTION = 51
     ILUMI_API_CMD_DATA_CHUNK = 52
@@ -136,6 +147,8 @@ class IlumiApiCmdType:
     ILUMI_API_CMD_TREE_MESH_PROXY = 68
     ILUMI_API_CMD_GET_HARDWARE_TYPE = 70
     ILUMI_API_CMD_GET_ALARM_DATA = 75
+    ILUMI_API_CMD_PING = 84
+    ILUMI_API_CMD_PING_ECHO = 85
 
 
 class IlumiConfigCmdType:
@@ -207,6 +220,12 @@ class IlumiSDK:
         self._device_info_event = asyncio.Event()
         self._mesh_info: List[Dict[str, Any]] = []
         self._mesh_event = asyncio.Event()
+        self._ping_event = asyncio.Event()
+        self._last_ping_payload: Optional[bytes] = None
+        self._last_node_id: Optional[int] = None
+        self._node_id_event = asyncio.Event()
+        self._last_group_ids: List[int] = []
+        self._group_ids_event = asyncio.Event()
 
     # ------------------------------------------------------------------
     # Context manager
@@ -367,6 +386,27 @@ class IlumiSDK:
             if len(data) >= 4:
                 self._last_alarm_data = bytes(data[4:])
                 self._get_alarm_data_event.set()
+
+        elif cmd_type == IlumiApiCmdType.ILUMI_API_CMD_PING_ECHO:
+            if len(data) >= 4:
+                self._last_ping_payload = bytes(data[4:])
+                self._ping_event.set()
+
+        elif cmd_type == IlumiApiCmdType.ILUMI_API_CMD_GET_NODE_ID:
+            if len(data) >= 6:
+                self._last_node_id = struct.unpack("<H", data[4:6])[0]
+                self._node_id_event.set()
+
+        elif cmd_type == IlumiApiCmdType.ILUMI_API_CMD_GET_GROUP_IDS:
+            if len(data) >= 4:
+                payload_size = struct.unpack("<H", data[2:4])[0]
+                payload = data[4:4+payload_size]
+                self._last_group_ids = []
+                for i in range(0, len(payload), 2):
+                    if i + 2 <= len(payload):
+                        group_id = struct.unpack("<H", payload[i:i+2])[0]
+                        self._last_group_ids.append(group_id)
+                self._group_ids_event.set()
 
         elif cmd_type == IlumiApiCmdType.ILUMI_API_CMD_GET_DEVICE_INFO:
             if len(data) >= 14:
@@ -732,6 +772,82 @@ class IlumiSDK:
         logger.info(f"Setting calendar event {alarm_idx} for {utc_dt.strftime('%Y-%m-%d %H:%M')} UTC...")
         await self._send_command(header + payload)
 
+    async def delete_color_pattern(self, scene_idx: int):
+        """Deletes a specific color pattern (scene)."""
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_DELETE_COLOR_PATTERN)
+        payload = struct.pack("<B", scene_idx)
+        await self._send_command(header + payload)
+
+    async def get_node_id(self) -> Optional[int]:
+        """Queries the bulb's current Node ID."""
+        self._last_node_id = None
+        self._node_id_event.clear()
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_GET_NODE_ID)
+        await self._send_command(header)
+        try:
+            await asyncio.wait_for(self._node_id_event.wait(), timeout=5.0)
+            return self._last_node_id
+        except asyncio.TimeoutError:
+            logger.error("Timed out waiting for Node ID.")
+            return None
+
+    async def set_node_id(self, node_id: int):
+        """Sets a new Node ID for the bulb."""
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_SET_NODE_ID)
+        payload = struct.pack("<H", node_id)
+        await self._send_command(header + payload)
+
+    async def get_group_ids(self) -> List[int]:
+        """Queries the list of group IDs this bulb belongs to."""
+        self._last_group_ids = []
+        self._group_ids_event.clear()
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_GET_GROUP_IDS)
+        await self._send_command(header)
+        try:
+            await asyncio.wait_for(self._group_ids_event.wait(), timeout=5.0)
+            return self._last_group_ids
+        except asyncio.TimeoutError:
+            logger.error("Timed out waiting for Group IDs.")
+            return []
+
+    async def add_group_id(self, group_id: int):
+        """Adds this bulb to a specific group."""
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_ADD_GROUP_ID)
+        payload = struct.pack("<H", group_id)
+        await self._send_command(header + payload)
+
+    async def del_group_id(self, group_id: int):
+        """Removes this bulb from a specific group."""
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_DEL_GROUP_ID)
+        payload = struct.pack("<H", group_id)
+        await self._send_command(header + payload)
+
+    async def clear_all_group_ids(self):
+        """Removes this bulb from all groups."""
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_CLEAR_ALL_GROUP_IDS)
+        await self._send_command(header)
+
+
+    async def delete_all_color_patterns(self):
+        """Deletes all custom color patterns."""
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_DELETE_ALL_COLOR_PATTERNS)
+        await self._send_command(header)
+
+    async def clear_all_user_data(self):
+        """Unenrolls the bulb and resets all user data (Manufacturer Reset)."""
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_CLEAR_ALL_USER_DATA)
+        await self._send_command(header)
+
+    async def set_random_color(self):
+        """Sets the bulb to a random color."""
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_SET_RANDOM_COLOR)
+        await self._send_command(header)
+
+    async def random_color_sequence(self):
+        """Starts a sequence of random colors."""
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_RANDOM_COLOR_SEQUENCE)
+        await self._send_command(header)
+
     async def delete_alarm(self, alarm_idx: int):
         """Deletes a scheduled alarm index."""
         header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_DELETE_ALARM)
@@ -749,6 +865,27 @@ class IlumiSDK:
         payload = struct.pack("<B", alarm_idx)
         await self._send_command(header + payload)
         return None
+
+    async def ping(self, payload: bytes = b'\xde\xad\xbe\xef', timeout: float = 5.0) -> Optional[bytes]:
+        """
+        Sends a ping command with an optional payload and waits for an echo response.
+        :param payload: Data to be echoed back by the bulb.
+        :param timeout: How long to wait for the response.
+        :return: The echoed payload if successful, None otherwise.
+        """
+        self._last_ping_payload = None
+        self._ping_event.clear()
+        
+        header = self._pack_header(IlumiApiCmdType.ILUMI_API_CMD_PING)
+        logger.info(f"Sending PING to {self.mac_address} with payload: {payload.hex()}")
+        await self._send_command(header + payload)
+        
+        try:
+            await asyncio.wait_for(self._ping_event.wait(), timeout=timeout)
+            return self._last_ping_payload
+        except asyncio.TimeoutError:
+            logger.error(f"Timed out waiting for PING_ECHO from {self.mac_address}.")
+            return None
 
 async def execute_on_targets(
     targets: List[str], coro_func
